@@ -13,7 +13,10 @@
 - `AGENTS.md` — порядок работы и передачи задач.
 - `.codex/agents/` — роли PM, gamedev-разработчика и QA.
 - `work/production/` — план и отчёты проверок.
-- `docs/architecture/` — архитектурное предложение и решения (по мере подготовки).
+- [Архитектурное предложение](docs/architecture/overview.md) — модули, зависимости, состояние и кооп.
+- [Решения и открытые вопросы](docs/architecture/decisions.md) — подтверждённое, предложенное и TBD.
+- [Пересмотр прежних изменений](outputs/change-audit.md).
+- [Инструменты Unity CLI и интеграция](outputs/unity-tools.md).
 
 ## Синхронизация
 
