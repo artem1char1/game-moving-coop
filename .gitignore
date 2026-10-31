@@ -1,0 +1,16 @@
+# Local credentials and environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Scratch files; keep production planning in version control
+work/*
+!work/production/
+
+# Editor and OS files
+.idea/
+.vs/
+Thumbs.db
+.DS_Store
