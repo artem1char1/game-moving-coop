@@ -9,6 +9,9 @@
 work/*
 !work/production/
 
+# Runtime evidence stays local; commit concise QA reports instead
+work/production/spike/
+
 # Editor and OS files
 .idea/
 .vs/

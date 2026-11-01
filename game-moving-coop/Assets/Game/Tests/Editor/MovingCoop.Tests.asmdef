@@ -1,0 +1,15 @@
+{
+  "name": "MovingCoop.Tests",
+  "references": [
+    "MovingCoop.Domain",
+    "MovingCoop.Application",
+    "MovingCoop.UnityAdapters",
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
