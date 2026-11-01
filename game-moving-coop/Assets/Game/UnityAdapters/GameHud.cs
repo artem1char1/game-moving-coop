@@ -21,7 +21,7 @@ namespace MovingCoop.UnityAdapters
             GUILayout.Label("Host-authoritative co-op prototype", text);
             GUILayout.Space(8);
             GUILayout.Label(Notice, text);
-            if(Frame!=null){GUILayout.Label($"{Frame.total}/320  |  {Frame.remaining:F1}s",text);GUILayout.Label(Frame.result,text); if(Frame.phase==1&&IsHost)GUILayout.Label(Frame.total<320?"F: Leave - quota not met":"F: Evacuate when both movers are free in delivery zone",text);GUILayout.Label(Frame.feedback,text); if(Frame.players!=null)foreach(var p in Frame.players)if(p.id==LocalId)GUILayout.Label(p.targetCargo>0?$"E: Cargo {p.targetCargo} / Handle {p.targetHandle}":"E: release / approach a free handle",text);if(Frame.cargo!=null)foreach(var c in Frame.cargo)if(c.id==10)GUILayout.Label($"Sofa: {c.first} / {c.second}",text);foreach(var p in Frame.players)if(p.rotationLeader)GUILayout.Label($"Rotation leader: {p.id}",text); }
+            if(Frame!=null){GUILayout.Label($"{Frame.total}/320  |  {Frame.remaining:F1}s",text);GUILayout.Label(Frame.result,text); if(Frame.phase==1&&IsHost)GUILayout.Label(Frame.total<320?"F: Leave - quota not met":"F: Evacuate when all movers are free in delivery zone",text);GUILayout.Label(Frame.feedback,text); if(Frame.players!=null)foreach(var p in Frame.players)if(p.id==LocalId)GUILayout.Label(p.targetCargo>0?$"E: Cargo {p.targetCargo} / Handle {p.targetHandle}":"E: release / approach a free handle",text);if(Frame.cargo!=null)foreach(var c in Frame.cargo)if(c.id==10)GUILayout.Label($"Sofa: {c.first} / {c.second}",text);foreach(var p in Frame.players)if(p.rotationLeader)GUILayout.Label($"Rotation leader: {p.id}",text); }
             if (!Listening)
             {
                 GUILayout.Space(10);

@@ -31,7 +31,7 @@ namespace MovingCoop.Domain
         public int Revision { get; private set; }
         public ShiftPhase Phase { get; private set; } = ShiftPhase.Preparing;
         public IEnumerable<PlayerState> Players => players.Values;
-        public bool CanStart => Phase == ShiftPhase.Preparing && players.Count == 2 && players.Values.All(p => p.Ready);
+        public bool CanStart => Phase == ShiftPhase.Preparing && players.Count >= 1 && players.Values.All(p => p.Ready);
         public bool CanJoin => Phase == ShiftPhase.Preparing && players.Count < 2;
 
         public bool Add(ulong id)

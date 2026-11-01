@@ -17,7 +17,7 @@ Unity 6000.6.7f1 (URP, C#), NGO 2.13.3 и встроенный Unity Transport 6
 - [ТЗ первой итерации](outputs/iteration-01-spec.md).
 - [Независимое QA первой итерации](work/production/iteration-01-final-qa.md).
 
-Игровая сцена: `game-moving-coop/Assets/Game/Scenes/Iteration01.unity`. В Editor открыть её и запустить Play Mode; сборка запускает ту же сцену. Для ручного коопа выбрать Host/Join, затем Start у хоста. Подробности в инструкции запуска. Локальные сборки и большие runtime-логи не коммитятся.
+Игровая сцена: `game-moving-coop/Assets/Game/Scenes/Iteration01.unity`. В Editor открыть её и запустить Play Mode; сборка запускает ту же сцену. Для одиночной игры выбрать Host → Start Shift без второго игрока; коробки доступны одному, диван требует двоих. Для коопа второй игрок присоединяется через Join до начала смены. Подробности в инструкции запуска. Локальные сборки и большие runtime-логи не коммитятся.
 - [Архитектурное предложение](docs/architecture/overview.md) — модули, зависимости, состояние и кооп.
 - [Решения и открытые вопросы](docs/architecture/decisions.md) — подтверждённое, предложенное и TBD.
 - [Пересмотр прежних изменений](outputs/change-audit.md).

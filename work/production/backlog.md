@@ -137,3 +137,9 @@ MVP-001…MVP-006 из прежнего предварительного пла�
 - Инструкция outputs/iteration-01-play.md. Raw runtime evidence work/production/spike остаётся локально, краткие отчёты коммитятся.
 - Существующие неизвестные изменения Assets/Settings, GraphicsSettings, URPProjectSettings, UnityConnectSettings сохранены локально, не откатывались и не включаются в реализационный коммит.
 - Следующую итерацию без поручения пользователя не начинать.
+
+## SOLO-001 — done, 01.11.2026
+
+Запрос пользователя: начать одному. Host -> Start Shift разрешён одному готовому хосту; подключённая пара по-прежнему требует готовности обоих. Диван требует двоих, квота320 достижима восемью коробками; late join Active запрещён. Автокооп ждёт2, явная автоматизация solo через --moving-solo true.
+
+Независимое QA PASS: work/production/solo-001-qa.md,21/21тестов, финальная сборка solo8box320/Success за85.892с, soloRestart/Start, coop2, отказlatejoin. Новая поставка outputs оригинального чата MovingCrew-Iteration01-Solo.zip, инструкция outputs/iteration-01-play.md. Ручные GUI-клики и LAN не заявляются. Существующие renderer/cloud diffs не затронуты. Следующие функции без запроса не начинать.

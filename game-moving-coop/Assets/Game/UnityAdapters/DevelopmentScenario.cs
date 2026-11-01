@@ -29,6 +29,7 @@ namespace MovingCoop.UnityAdapters
         public string Address { get; }
         public bool Enabled { get; }
         public bool AutoStart { get; }
+        public bool Solo { get; }
         public bool ShouldQuit => Enabled && Time.realtimeSinceStartupAsDouble - beganAt >= duration;
         private readonly float duration;
         public string CapturePath { get; }
@@ -41,6 +42,7 @@ namespace MovingCoop.UnityAdapters
             Enabled = mode == "race" || mode == "movement" || mode=="quota" || mode!=null&&mode.StartsWith("sofa") || Argument("--moving-script")!=null;
             if(mode=="quota"||mode!=null&&mode.StartsWith("sofa"))planner=new DevelopmentCarryPlanner(Role=="host",mode!=null&&mode.StartsWith("sofa"));
             var scriptPath=Argument("--moving-script"); if(scriptPath!=null)steps=JsonUtility.FromJson<Script>(File.ReadAllText(scriptPath)).steps;
+            Solo = Argument("--moving-solo") == "true";
             AutoStart = Argument("--moving-autostart") != "false";
             duration = float.TryParse(Argument("--moving-seconds"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var seconds) ? seconds : 25;
             beganAt = Time.realtimeSinceStartupAsDouble;

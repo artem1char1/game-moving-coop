@@ -55,7 +55,7 @@ namespace MovingCoop.Bootstrap
             if (authority != null) authority.Decision += (kind, sender) => scenario.Log(kind, "sender=" + sender, network.LocalId, authority.Snapshot());
             var success = host ? network.StartHost(Port) : network.StartClient(address, Port);
             hud.Listening = success; hud.IsHost = host;
-            hud.Notice = success ? (host ? "Host waiting for a second mover." : "Connecting to " + address + "...") : "Could not start transport. Check address / port.";
+            hud.Notice = success ? (host ? "Host ready: start solo or wait for a second mover." : "Connecting to " + address + "...") : "Could not start transport. Check address / port.";
             if (!success) leaving = true;
         }
         private void Connected(ulong id)
@@ -116,7 +116,7 @@ namespace MovingCoop.Bootstrap
                 var world = LocalInput.ToWorld(screen);
                 if(!scenario.SuppressInput)Send("input", world);
             }
-            if (scenario.Enabled && network.IsHost && frame?.canStart == true && !autoStarted && scenario.AutoStart)
+            if (scenario.Enabled && network.IsHost && frame?.canStart == true && (scenario.Solo || frame.players.Length == 2) && !autoStarted && scenario.AutoStart)
             { autoStarted = true; Send("start"); }
             if(UnityEngine.Application.isFocused && !scenario.Enabled && UnityEngine.InputSystem.Keyboard.current != null) { var k=UnityEngine.InputSystem.Keyboard.current; if(k.eKey.wasPressedThisFrame)Send("interact"); if(k.fKey.wasPressedThisFrame)Send("evacuate"); }
             var scripted=scenario.NextCommand(); if(scripted!=null)Send(scripted);

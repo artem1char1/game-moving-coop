@@ -11,6 +11,9 @@ work/*
 
 # Runtime evidence stays local; commit concise QA reports instead
 work/production/spike/
+work/production/solo-001-*.json
+work/production/solo-001-*.jsonl
+work/production/solo-001-*.log
 
 # Editor and OS files
 .idea/
