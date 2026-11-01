@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "routing": {
+    "S": {"max_subagent_calls": 1, "default_roles": [], "reason": "Координатор: локальная правка"},
+    "M": {"max_subagent_calls": 2, "default_roles": ["gamedev_developer"], "review": "по риску"},
+    "L": {"max_subagent_calls": 4, "default_roles": ["project_manager", "gamedev_developer"], "review": "QA по затронутым рискам"},
+    "C": {"max_subagent_calls": 4, "default_roles": ["gamedev_developer", "qa_reviewer"], "independent_qa_required": true, "plan_owner": "координатор или PM при изменении контрактов"}
+  },
+  "initial_files": [3, 8],
+  "max_technical_retries": 1,
+  "max_content_revision_rounds": 2,
+  "handoff_words": 200,
+  "fresh_agents_fork_turns": "none",
+  "wait_ms": 45000,
+  "budget_mode": "advisory; required checks preserved; coordinator records extensions",
+  "models": {"active": "inherit", "automatic_switching": false, "reason": "Нет отдельного назначения моделей пользователем; доступные счётчики стоимости отсутствуют"},
+  "token_limit_enforced": false,
+  "cache_control": "platform-managed; no claimed manual cache",
+  "pilot_targets": {"median_tokens_reduction": 0.30, "repeat_reads_reduction": 0.50}
+}
