@@ -52,6 +52,7 @@ namespace MovingCoop.Application
                 if (now - input.ReceivedAt >= 0.5) { input.X = 0; input.Z = 0; input.Turn=0; cargo.Cancel(p.Id); }
                 if(cargo.Held(p.Id)!=null || cargo.Approaching(p.Id)) continue;
                 if (input.X == 0 && input.Z == 0) continue;
+                State.Face(p.Id,Heading.Towards(p.Facing,Heading.FromInput(input.X,input.Z),540*dt));
                 State.Move(p.Id, world.Move(p.Position, new GroundPoint(input.X * 4 * dt, input.Z * 4 * dt)));
             }
             cargo.Step(State,dt,now,id=> {var v=inputs[id];return (v.X,v.Z,v.Turn);});
@@ -91,7 +92,7 @@ namespace MovingCoop.Application
             session = State.SessionId, shift = State.ShiftId, revision = State.Revision,
             phase = (int)State.Phase, canStart = State.CanStart, total=cargo.Total, remaining=State.Phase==ShiftPhase.Preparing?300:(float)Math.Max(0,deadline-clock),result=result,feedback=cargo.Feedback,
             cargo=cargo.Items.Select(c=>new CargoFrame{id=c.Id,x=c.Position.X,z=c.Position.Z,angle=c.Angle,delivered=c.Delivered,first=c.Carriers.TryGetValue(0,out var a)?(long)a:-1,second=c.Carriers.TryGetValue(1,out var b)?(long)b:-1}).ToArray(),
-            players = State.Players.OrderBy(p => p.Id).Select(p => new PlayerFrame { id = p.Id, x = p.Position.X, z = p.Position.Z, ready = p.Ready,targetCargo=cargo.Target(State,p.Id).cargo,targetHandle=cargo.Target(State,p.Id).handle,rotationLeader=cargo.Held(p.Id)?.Leader==p.Id }).ToArray()
+            players = State.Players.OrderBy(p => p.Id).Select(p => new PlayerFrame { id = p.Id, x = p.Position.X, z = p.Position.Z, facing = p.Facing, ready = p.Ready,targetCargo=cargo.Target(State,p.Id).cargo,targetHandle=cargo.Target(State,p.Id).handle,rotationLeader=cargo.Held(p.Id)?.Leader==p.Id }).ToArray()
         };
     }
 }

@@ -17,6 +17,8 @@ namespace MovingCoop.Domain
         public ulong Id { get; }
         public GroundPoint Position { get; private set; }
         public bool Ready { get; private set; }
+        public float Facing { get; private set; }
+        internal void SetFacing(float angle) => Facing = angle;
         public PlayerState(ulong id, GroundPoint position) { Id = id; Position = position; }
         internal void SetReady() => Ready = true;
         internal void MoveTo(GroundPoint position) => Position = position;
@@ -56,6 +58,7 @@ namespace MovingCoop.Domain
             if (!CanStart) return false;
             Phase = ShiftPhase.Active; Revision++; return true;
         }
+        public void Face(ulong id,float angle) { var p=Find(id); if(p!=null && Phase==ShiftPhase.Active){p.SetFacing(angle);Revision++;} }
         public void Move(ulong id, GroundPoint point)
         {
             var p = Find(id);

@@ -4,7 +4,7 @@ using MovingCoop.Domain;
 namespace MovingCoop.Application
 {
     [Serializable]
-    public sealed class PlayerFrame { public ulong id; public float x, z; public bool ready; public int targetCargo, targetHandle; public bool rotationLeader; }
+    public sealed class PlayerFrame { public ulong id; public float x, z, facing; public bool ready; public int targetCargo, targetHandle; public bool rotationLeader; }
     [Serializable]
     public sealed class SessionFrame
     {

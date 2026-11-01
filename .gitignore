@@ -14,6 +14,9 @@ work/production/spike/
 work/production/solo-001-*.json
 work/production/solo-001-*.jsonl
 work/production/solo-001-*.log
+work/production/facing-*.json
+work/production/facing-*.jsonl
+work/production/facing-*.log
 
 # Editor and OS files
 .idea/
