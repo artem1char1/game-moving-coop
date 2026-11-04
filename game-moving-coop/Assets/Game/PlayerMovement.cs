@@ -41,7 +41,7 @@ namespace MovingCoop
 
                 var mouse = Mouse.current;
                 if (mouse != null)
-                    jump = jumpGesture.Sample(mouse.delta.ReadValue(), Time.unscaledTime);
+                    jump = jumpGesture.Sample(mouse.position.ReadValue(), Time.unscaledTime);
                 else
                     jumpGesture.Reset();
             }
