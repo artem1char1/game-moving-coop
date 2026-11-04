@@ -17,6 +17,8 @@ namespace MovingCoop
         private readonly MouseJumpGesture jumpGesture = new();
         private CharacterController controller;
         private float verticalSpeed;
+        private Vector3 movementRight;
+        private Vector3 movementForward;
 
         internal AttemptControls Controls { get; private set; }
 
@@ -24,8 +26,11 @@ namespace MovingCoop
         {
             Controls = AttemptControls.Next();
             controller = GetComponent<CharacterController>();
-            if (view == null && Camera.main != null)
-                view = Camera.main.transform;
+            var initialView = view != null ? view : Camera.main?.transform;
+            movementRight = initialView != null
+                ? Vector3.ProjectOnPlane(initialView.right, Vector3.up).normalized
+                : Vector3.right;
+            movementForward = Vector3.Cross(movementRight, Vector3.up);
         }
 
         private void Update()
@@ -61,9 +66,7 @@ namespace MovingCoop
         private void Move(Vector2 input, bool jump, float deltaTime)
         {
             input = Vector2.ClampMagnitude(input, 1f);
-            var right = view != null ? Vector3.ProjectOnPlane(view.right, Vector3.up).normalized : Vector3.right;
-            var forward = Vector3.Cross(right, Vector3.up);
-            var direction = right * input.x + forward * input.y;
+            var direction = movementRight * input.x + movementForward * input.y;
 
             if (controller.isGrounded && verticalSpeed <= 0f)
                 verticalSpeed = jump ? Mathf.Sqrt(2f * Gravity * jumpHeight) : -2f;
