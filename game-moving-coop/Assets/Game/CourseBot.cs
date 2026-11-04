@@ -25,7 +25,8 @@ namespace MovingCoop
         private float verticalSpeed;
         private bool jumped;
 
-        public float Z => controller.transform.position.z;
+        public Vector3 Position => controller.transform.position;
+        public float Z => Position.z;
 
         public CourseBot(Transform parent, string name, Vector3 spawn, Color color, float speed,
             Waypoint[] route, CharacterController player, CourseBot[] otherBots)
