@@ -43,7 +43,7 @@ namespace MovingCoop
                 }
 
                 var mouse = Mouse.current;
-                if (mouse != null)
+                if (mouse != null && !mouse.rightButton.isPressed && !mouse.rightButton.wasReleasedThisFrame)
                     jump = jumpGesture.Sample(mouse.position.ReadValue(), Time.unscaledTime, Controls.Jump);
                 else
                     jumpGesture.Reset();

@@ -64,7 +64,7 @@ namespace MovingCoop
                 JumpGesture.Vertical => "Мышь вверх-вниз — прыжок",
                 _ => "Круг курсором — прыжок"
             };
-            return $"{Forward} — вперёд   {Back} — назад\n{Left} — влево   {Right} — вправо\n{jump}\nR — начать заново";
+            return $"{Forward} — вперёд   {Back} — назад\n{Left} — влево   {Right} — вправо\n{jump}\nЗажми ПКМ — вращение камеры\nR — начать заново";
         }
     }
 }
