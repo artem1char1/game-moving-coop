@@ -132,7 +132,7 @@ GameObject:
   - component: {fileID: 292113612}
   - component: {fileID: 292113611}
   m_Layer: 0
-  m_Name: Jump or Detour - Last Hurdle
+  m_Name: Side Hurdle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -458,7 +458,7 @@ GameObject:
   - component: {fileID: 603601561}
   - component: {fileID: 603601560}
   m_Layer: 0
-  m_Name: Detour - Opening on Left
+  m_Name: Second Detour Wall
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -662,7 +662,7 @@ GameObject:
   - component: {fileID: 667308032}
   - component: {fileID: 667308031}
   m_Layer: 0
-  m_Name: Jump - First Hurdle
+  m_Name: Mandatory Hurdle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -774,7 +774,7 @@ GameObject:
   - component: {fileID: 1027186307}
   - component: {fileID: 1027186306}
   m_Layer: 0
-  m_Name: Detour - Opening on Right
+  m_Name: First Detour Wall
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1071,6 +1071,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1439493545}
   - component: {fileID: 1439493544}
+  - component: {fileID: 1439493546}
   m_Layer: 0
   m_Name: Obstacle Course
   m_TagString: Untagged
@@ -1114,6 +1115,22 @@ Transform:
   - {fileID: 292113610}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1439493546
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1439493543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d2dc2197994c4242b2cc4587ffe3313, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::MovingCoop.CourseLayout
+  hurdle: {fileID: 667308030}
+  firstWall: {fileID: 1027186305}
+  secondWall: {fileID: 603601559}
+  sideHurdle: {fileID: 292113610}
 --- !u!1 &1765698425
 GameObject:
   m_ObjectHideFlags: 0
