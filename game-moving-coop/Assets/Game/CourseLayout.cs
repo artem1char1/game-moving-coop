@@ -19,11 +19,14 @@ namespace MovingCoop
 
         private const float HalfArenaWidth = 11f;
         private const float PillarHeight = 1.9f;
+        private const float DividerThickness = .7f;
         private LiftCycle firstCycle;
         private LiftCycle secondCycle;
         private CourseBot[] bots;
         private Transform[] rows;
         private readonly Dictionary<Transform, WallCombination> combinations = new(4);
+        private readonly Dictionary<Transform, float> dividerLengths = new(2);
+        private readonly List<(Transform Gate, LiftCycle Cycle)> dividerGates = new(2);
 
         private readonly struct WallCombination
         {
@@ -45,10 +48,12 @@ namespace MovingCoop
         {
             var fourthWall = Instantiate(extraWall, transform);
             fourthWall.name = "Fourth Combined Wall";
+            var firstDivider = NewDivider("Longitudinal Wall A");
+            var secondDivider = NewDivider("Longitudinal Wall B");
             rows = new[]
             {
                 hurdle, secondHurdle, firstWall, secondWall, sideHurdle, centerBlock,
-                firstPillar, secondPillar, extraHurdle, extraWall, fourthWall
+                firstPillar, secondPillar, extraHurdle, extraWall, fourthWall, firstDivider, secondDivider
             };
             Shuffle(rows);
 
@@ -58,7 +63,7 @@ namespace MovingCoop
             for (var i = 0; i < rows.Length; i++)
             {
                 var row = rows[i];
-                var z = -26f + i * 5.2f + Random.Range(-.22f, .22f);
+                var z = -26.7f + i * 4.45f + Random.Range(-.14f, .14f);
                 if (row == hurdle || row == secondHurdle)
                     PlaceSideHurdle(row, z, Random.Range(13f, 16f));
                 else if (row == firstPillar || row == secondPillar)
@@ -68,6 +73,8 @@ namespace MovingCoop
                 else if (row == centerBlock)
                     Place(row, Random.Range(-2f, 2f), z, Random.Range(4f, 7f),
                         Random.Range(1.7f, 2.15f), Random.Range(.8f, 1.2f));
+                else if (row == firstDivider || row == secondDivider)
+                    PlaceDivider(row, z, Random.Range(row == firstDivider ? 1 : 0, 4));
                 else
                     combinations.Add(row, CombineWall(row, z));
             }
@@ -79,6 +86,48 @@ namespace MovingCoop
             {
                 var pick = Random.Range(0, i + 1);
                 (items[i], items[pick]) = (items[pick], items[i]);
+            }
+        }
+
+        private Transform NewDivider(string name)
+        {
+            var divider = new GameObject(name).transform;
+            divider.SetParent(transform, false);
+            return divider;
+        }
+
+        private void PlaceDivider(Transform divider, float z, int mix)
+        {
+            var length = Random.Range(mix == 3 ? 3.3f : 2.4f, 3.5f);
+            divider.localPosition = new Vector3(Random.Range(-5f, 5f), 0f, z);
+            dividerLengths.Add(divider, length);
+
+            var templates = new List<Transform>(3) { firstWall };
+            if ((mix & 1) != 0) templates.Add(hurdle);
+            if ((mix & 2) != 0) templates.Add(firstPillar);
+            var pieces = templates.ToArray();
+            Shuffle(pieces);
+
+            var segmentLength = length / pieces.Length;
+            for (var i = 0; i < pieces.Length; i++)
+            {
+                var template = pieces[i];
+                var segment = Instantiate(template, divider);
+                var segmentZ = -length * .5f + segmentLength * (i + .5f);
+                if (template == firstPillar)
+                {
+                    segment.name = "Longitudinal Lift Gate";
+                    segment.localScale = new Vector3(DividerThickness, PillarHeight, segmentLength);
+                    segment.localPosition = new Vector3(0f, -PillarHeight * .5f, segmentZ);
+                    dividerGates.Add((segment, new LiftCycle(Random.Range(0f, 2.8f))));
+                }
+                else
+                {
+                    var low = template == hurdle;
+                    segment.name = low ? "Longitudinal Jump Barrier" : "Longitudinal Solid Wall";
+                    Place(segment, 0f, segmentZ, DividerThickness,
+                        low ? Random.Range(.42f, .57f) : Random.Range(1.8f, 2.2f), segmentLength);
+                }
             }
         }
 
@@ -119,6 +168,7 @@ namespace MovingCoop
             foreach (var row in rows)
             {
                 var jump = false;
+                var approach = 1.1f;
                 Transform gate = row == firstPillar || row == secondPillar ? row : null;
                 if (combinations.TryGetValue(row, out var combination))
                 {
@@ -133,6 +183,13 @@ namespace MovingCoop
                     var edge = row.position.x + side * row.localScale.x * .5f;
                     x = Mathf.Lerp(edge, side * HalfArenaWidth, .45f);
                 }
+                else if (dividerLengths.TryGetValue(row, out var length))
+                {
+                    approach = length * .5f + .3f;
+                    const float clearance = DividerThickness * .5f + .6f;
+                    if (Mathf.Abs(x - row.position.x) < clearance)
+                        x = row.position.x + (x < row.position.x ? -clearance : clearance);
+                }
                 else if (gate == null)
                 {
                     var side = -Mathf.Sign(row.position.x);
@@ -140,8 +197,8 @@ namespace MovingCoop
                 }
 
                 var z = row.position.z;
-                route[index++] = new CourseBot.Waypoint(x, z - 1.1f);
-                route[index++] = new CourseBot.Waypoint(x, z + 1.1f, jump, gate);
+                route[index++] = new CourseBot.Waypoint(x, z - approach);
+                route[index++] = new CourseBot.Waypoint(x, z + approach, jump, gate);
             }
 
             route[index] = new CourseBot.Waypoint(x, finishZ + .45f);
@@ -156,6 +213,8 @@ namespace MovingCoop
             foreach (var combination in combinations.Values)
                 if (combination.Gate != null)
                     MovePillar(combination.Gate, combination.Cycle.HeightAt(time));
+            foreach (var dividerGate in dividerGates)
+                MovePillar(dividerGate.Gate, dividerGate.Cycle.HeightAt(time));
         }
 
         private static void PlaceGate(Transform gate, float z)
