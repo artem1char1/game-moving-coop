@@ -15,6 +15,7 @@ namespace MovingCoop
         [SerializeField] private Transform player;
 
         private const float HalfArenaWidth = 11f;
+        private const float LengthScale = 3f;
         private const float PillarHeight = 1.9f;
         private static bool? previousLeftWall;
         private LiftCycle firstCycle;
@@ -159,7 +160,7 @@ namespace MovingCoop
                 Random.Range(.55f, .75f));
         }
 
-        private static float Lane(float z) => z + Random.Range(-.22f, .22f);
+        private static float Lane(float z) => z * LengthScale + Random.Range(-.22f, .22f);
 
         private static float EdgeCenter(float width, bool onLeft) =>
             (HalfArenaWidth - width * .5f) * (onLeft ? -1f : 1f);
