@@ -34,7 +34,7 @@ namespace MovingCoop
         private void Orbit(Vector2 delta)
         {
             yaw = Mathf.Repeat(yaw + delta.x * Sensitivity, 360f);
-            pitch = Mathf.Clamp(pitch - delta.y * Sensitivity, 12f, 72f);
+            pitch = Mathf.Clamp(pitch - delta.y * Sensitivity, 36f, 72f);
             var rotation = Quaternion.Euler(pitch, yaw, 0f);
             transform.SetLocalPositionAndRotation(Pivot - rotation * Vector3.forward * distance, rotation);
         }
