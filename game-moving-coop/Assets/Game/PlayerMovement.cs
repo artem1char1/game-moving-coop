@@ -14,9 +14,12 @@ namespace MovingCoop
         [SerializeField, Min(0f)] private float jumpHeight = 1.2f;
 
         private const float Gravity = 22f;
+        private const float ScrollWindow = .3f;
         private readonly MouseJumpGesture jumpGesture = new();
         private CharacterController controller;
         private float verticalSpeed;
+        private float scrollUntil = float.NegativeInfinity;
+        private bool scrollUp;
         private Vector3 movementRight;
         private Vector3 movementForward;
 
@@ -48,6 +51,14 @@ namespace MovingCoop
                 }
 
                 var mouse = Mouse.current;
+                if (mouse != null)
+                    input = FilterMovement(input, mouse.scroll.ReadValue().y, Time.unscaledTime);
+                else
+                {
+                    input = Vector2.zero;
+                    scrollUntil = float.NegativeInfinity;
+                }
+
                 if (mouse != null && !mouse.rightButton.isPressed && !mouse.rightButton.wasReleasedThisFrame)
                     jump = jumpGesture.Sample(mouse.position.ReadValue(), Time.unscaledTime, Controls.Jump);
                 else
@@ -55,10 +66,23 @@ namespace MovingCoop
             }
             else
             {
+                scrollUntil = float.NegativeInfinity;
                 jumpGesture.Reset();
             }
 
             Move(input, jump, Time.deltaTime);
+        }
+
+        private Vector2 FilterMovement(Vector2 input, float scroll, float now)
+        {
+            if (scroll != 0f)
+            {
+                scrollUp = scroll > 0f;
+                scrollUntil = now + ScrollWindow;
+            }
+
+            if (now >= scrollUntil) return Vector2.zero;
+            return scrollUp ? new Vector2(0f, input.y) : new Vector2(input.x, 0f);
         }
 
         private static int Pressed(KeyControl key) => key.isPressed ? 1 : 0;
