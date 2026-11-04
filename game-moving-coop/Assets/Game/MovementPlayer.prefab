@@ -284,7 +284,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3920fb467a9dfe841990faab7f634801, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::MovingCoop.PlayerMovement
-  view: {fileID: 0}
   modelRoot: {fileID: 2137330395292515157}
   speed: 4
   turnSpeed: 540

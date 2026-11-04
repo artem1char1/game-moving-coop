@@ -7,7 +7,6 @@ namespace MovingCoop
     [RequireComponent(typeof(CharacterController))]
     public sealed class PlayerMovement : MonoBehaviour
     {
-        [SerializeField] private Transform view;
         [SerializeField] private Transform modelRoot;
         [SerializeField, Min(0f)] private float speed = 4f;
         [SerializeField, Min(0f)] private float turnSpeed = 540f;
@@ -20,8 +19,6 @@ namespace MovingCoop
         private float verticalSpeed;
         private float scrollUntil = float.NegativeInfinity;
         private bool scrollUp;
-        private Vector3 movementRight;
-        private Vector3 movementForward;
 
         internal AttemptControls Controls { get; private set; }
 
@@ -29,11 +26,6 @@ namespace MovingCoop
         {
             Controls = AttemptControls.Next();
             controller = GetComponent<CharacterController>();
-            var initialView = view != null ? view : Camera.main?.transform;
-            movementRight = initialView != null
-                ? Vector3.ProjectOnPlane(initialView.right, Vector3.up).normalized
-                : Vector3.right;
-            movementForward = Vector3.Cross(movementRight, Vector3.up);
         }
 
         private void Update()
@@ -90,7 +82,7 @@ namespace MovingCoop
         private void Move(Vector2 input, bool jump, float deltaTime)
         {
             input = Vector2.ClampMagnitude(input, 1f);
-            var direction = movementRight * input.x + movementForward * input.y;
+            var direction = new Vector3(input.x, 0f, input.y);
 
             if (controller.isGrounded && verticalSpeed <= 0f)
                 verticalSpeed = jump ? Mathf.Sqrt(2f * Gravity * jumpHeight) : -2f;

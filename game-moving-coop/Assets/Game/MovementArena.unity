@@ -696,8 +696,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 622020609}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.23336558, y: -0.20831026, z: 0.05125568, w: 0.9484304}
-  m_LocalPosition: {x: 12, y: 15.75, z: -26}
+  m_LocalRotation: {x: 0.23892812, y: 0, z: 0, w: 0.97103727}
+  m_LocalPosition: {x: 0, y: 15.75, z: -28.635643}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1285,10 +1285,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 5012507120164447144, guid: 432836305fdcfd44d92e9d39007df1ef, type: 3}
-      propertyPath: view
-      value:
-      objectReference: {fileID: 622020610}
     - target: {fileID: 6626444902414492092, guid: 432836305fdcfd44d92e9d39007df1ef, type: 3}
       propertyPath: m_Name
       value: MovementPlayer
