@@ -16,9 +16,9 @@ namespace MovingCoop
 
         private const float HalfArenaWidth = 11f;
         private const float PillarHeight = 1.9f;
-        private const float PillarWidth = 1.2f;
-        private const float LiftPeriod = 4f;
         private static bool? previousLeftWall;
+        private LiftCycle firstCycle;
+        private LiftCycle secondCycle;
 
         private void Awake()
         {
@@ -35,6 +35,8 @@ namespace MovingCoop
 
             PlacePillar(firstPillar, firstWall);
             PlacePillar(secondPillar, secondWall);
+            firstCycle = new LiftCycle(0f);
+            secondCycle = new LiftCycle(Random.Range(1.2f, 2.8f));
 
             var earlySlot = jumpFirst ? -4.8f : -8f;
             var lateSlot = jumpLast ? 4.8f : 8f;
@@ -70,8 +72,14 @@ namespace MovingCoop
                 {
                     var side = -Mathf.Sign(row.position.x);
                     var gapCenter = row.localScale.x * .5f;
-                    var offset = row == sideHurdle ? .5f : lane;
-                    x = side * Mathf.Lerp(gapCenter, HalfArenaWidth, offset);
+                    if (row == sideHurdle)
+                        x = side * Mathf.Lerp(gapCenter, HalfArenaWidth, .5f);
+                    else
+                    {
+                        var pillar = row == firstWall ? firstPillar : secondPillar;
+                        var outerEdge = gapCenter + pillar.localScale.x * .5f;
+                        x = side * Mathf.Lerp(outerEdge, HalfArenaWidth, lane);
+                    }
                 }
 
                 var z = row.position.z;
@@ -85,33 +93,63 @@ namespace MovingCoop
 
         private void Update()
         {
-            var phase = Time.timeSinceLevelLoad / LiftPeriod;
-            MovePillar(firstPillar, phase);
-            MovePillar(secondPillar, phase + .5f);
+            var time = Time.timeSinceLevelLoad;
+            MovePillar(firstPillar, firstCycle.HeightAt(time));
+            MovePillar(secondPillar, secondCycle.HeightAt(time));
         }
 
         private static void PlacePillar(Transform pillar, Transform wall)
         {
             var gapCenter = -Mathf.Sign(wall.localPosition.x) * wall.localScale.x * .5f;
-            pillar.localScale = new Vector3(PillarWidth, PillarHeight, PillarWidth);
+            pillar.localScale = new Vector3(Random.Range(1.35f, 3.2f), PillarHeight, 1.2f);
             pillar.localPosition = new Vector3(gapCenter, -PillarHeight * .5f, wall.localPosition.z);
         }
 
-        private void MovePillar(Transform pillar, float phase)
+        private void MovePillar(Transform pillar, float height)
         {
-            var lift = .5f - .5f * Mathf.Cos(phase * 2f * Mathf.PI);
-            var height = PillarHeight * Mathf.Clamp01((lift - .15f) / .7f);
             var position = pillar.localPosition;
             var targetY = height - PillarHeight * .5f;
 
             // Hold the current height while a player is over the footprint.
             var offset = player.position - pillar.position;
-            var clearance = PillarWidth * .5f + .32f;
-            if (targetY > position.y && Mathf.Abs(offset.x) < clearance && Mathf.Abs(offset.z) < clearance)
+            var size = pillar.localScale;
+            if (targetY > position.y && Mathf.Abs(offset.x) < size.x * .5f + .32f &&
+                Mathf.Abs(offset.z) < size.z * .5f + .32f)
                 return;
 
             position.y = targetY;
             pillar.localPosition = position;
+        }
+
+        private readonly struct LiftCycle
+        {
+            private readonly float lowered;
+            private readonly float raised;
+            private readonly float transition;
+            private readonly float offset;
+
+            public LiftCycle(float offset)
+            {
+                lowered = Random.Range(1.8f, 2.5f);
+                raised = Random.Range(.85f, 2.1f);
+                transition = Random.Range(.45f, .8f);
+                this.offset = offset;
+            }
+
+            public float HeightAt(float time)
+            {
+                var phase = Mathf.Repeat(time + offset, lowered + raised + 2f * transition);
+                if (phase < lowered) return 0f;
+
+                phase -= lowered;
+                if (phase < transition)
+                    return Mathf.SmoothStep(0f, PillarHeight, phase / transition);
+
+                phase -= transition;
+                if (phase < raised) return PillarHeight;
+
+                return Mathf.SmoothStep(PillarHeight, 0f, (phase - raised) / transition);
+            }
         }
 
         private static void PlaceWall(Transform wall, float z, bool onLeft)
