@@ -14,12 +14,15 @@ namespace MovingCoop
         [SerializeField, Min(0f)] private float jumpHeight = 1.2f;
 
         private const float Gravity = 22f;
-        private readonly MouseCircleGesture jumpGesture = new();
+        private readonly MouseJumpGesture jumpGesture = new();
         private CharacterController controller;
         private float verticalSpeed;
 
+        internal AttemptControls Controls { get; private set; }
+
         private void Awake()
         {
+            Controls = AttemptControls.Next();
             controller = GetComponent<CharacterController>();
             if (view == null && Camera.main != null)
                 view = Camera.main.transform;
@@ -35,13 +38,13 @@ namespace MovingCoop
                 if (keyboard != null)
                 {
                     input = new Vector2(
-                        Pressed(keyboard.lKey) - Pressed(keyboard.jKey),
-                        Pressed(keyboard.iKey) - Pressed(keyboard.kKey));
+                        Pressed(keyboard[Controls.Right]) - Pressed(keyboard[Controls.Left]),
+                        Pressed(keyboard[Controls.Forward]) - Pressed(keyboard[Controls.Back]));
                 }
 
                 var mouse = Mouse.current;
                 if (mouse != null)
-                    jump = jumpGesture.Sample(mouse.position.ReadValue(), Time.unscaledTime);
+                    jump = jumpGesture.Sample(mouse.position.ReadValue(), Time.unscaledTime, Controls.Jump);
                 else
                     jumpGesture.Reset();
             }

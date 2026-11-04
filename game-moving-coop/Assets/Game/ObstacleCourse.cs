@@ -22,10 +22,13 @@ namespace MovingCoop
         private GUIStyle controlsTextStyle;
 
         private static readonly GUIContent ControlsTitle = new("Управление");
-        private static readonly GUIContent ControlsText = new(
-            "I — вперёд   K — назад\nJ — влево   L — вправо\nКруг курсором — прыжок\nR — начать заново");
+        private GUIContent controlsText;
 
-        private void Start() => previousZ = player.position.z;
+        private void Start()
+        {
+            previousZ = player.position.z;
+            controlsText = new GUIContent(player.GetComponent<PlayerMovement>().Controls.Describe());
+        }
 
         private void LateUpdate()
         {
@@ -110,7 +113,7 @@ namespace MovingCoop
             var width = Mathf.Min(244f, Screen.width - margin * 2f);
             var innerWidth = width - padding * 2f;
             var titleHeight = controlsTitleStyle.CalcHeight(ControlsTitle, innerWidth);
-            var textHeight = controlsTextStyle.CalcHeight(ControlsText, innerWidth);
+            var textHeight = controlsTextStyle.CalcHeight(controlsText, innerWidth);
             var height = titleHeight + textHeight + padding * 2f;
             var top = Screen.height - margin - height;
 
@@ -118,7 +121,7 @@ namespace MovingCoop
             GUI.Label(new Rect(margin + padding, top + padding, innerWidth, titleHeight),
                 ControlsTitle, controlsTitleStyle);
             GUI.Label(new Rect(margin + padding, top + padding + titleHeight, innerWidth, textHeight),
-                ControlsText, controlsTextStyle);
+                controlsText, controlsTextStyle);
         }
     }
 }

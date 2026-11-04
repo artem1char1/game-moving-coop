@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace MovingCoop
 {
-    internal sealed class MouseCircleGesture
+    internal sealed class MouseJumpGesture
     {
         private const float MaxDuration = 2.5f;
         private const float MaxPause = 0.4f;
@@ -14,7 +14,7 @@ namespace MovingCoop
         private int next;
         private int count;
 
-        public bool Sample(Vector2 position, float now)
+        public bool Sample(Vector2 position, float now, JumpGesture gesture)
         {
             if (count > 0 && now - Point(0).Time > MaxPause)
                 Reset();
@@ -26,6 +26,15 @@ namespace MovingCoop
             next = (next + 1) % Capacity;
             count = Mathf.Min(count + 1, Capacity);
 
+            var detected = gesture == JumpGesture.Circle
+                ? DetectCircle(position, now)
+                : DetectSwipe(position, now, gesture == JumpGesture.Horizontal);
+            if (detected) Reset();
+            return detected;
+        }
+
+        private bool DetectCircle(Vector2 position, float now)
+        {
             var min = position;
             var max = position;
             var previous = position;
@@ -52,11 +61,42 @@ namespace MovingCoop
                     2f * Mathf.PI * Mathf.Abs(twiceArea) >= 0.45f * travel * travel &&
                     (position - point.Position).magnitude <= travel * 0.20f)
                 {
-                    Reset();
                     return true;
                 }
 
                 previous = point.Position;
+            }
+
+            return false;
+        }
+
+        private bool DetectSwipe(Vector2 position, float now, bool horizontal)
+        {
+            const float minimumLeg = 24f;
+            var end = horizontal ? position.x : position.y;
+            var high = end;
+            var low = end;
+            var crossMin = horizontal ? position.y : position.x;
+            var crossMax = crossMin;
+
+            for (var age = 1; age < count; age++)
+            {
+                var point = Point(age);
+                if (now - point.Time > 1.2f) break;
+
+                var axis = horizontal ? point.Position.x : point.Position.y;
+                var cross = horizontal ? point.Position.y : point.Position.x;
+                crossMin = Mathf.Min(crossMin, cross);
+                crossMax = Mathf.Max(crossMax, cross);
+
+                var throughHigh = high - Mathf.Max(end, axis);
+                var throughLow = Mathf.Min(end, axis) - low;
+                var leg = Mathf.Max(throughHigh, throughLow);
+                if (leg >= minimumLeg && crossMax - crossMin <= leg * .45f + 5f)
+                    return true;
+
+                high = Mathf.Max(high, axis);
+                low = Mathf.Min(low, axis);
             }
 
             return false;
