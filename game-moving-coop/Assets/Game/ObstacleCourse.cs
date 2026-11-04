@@ -46,6 +46,7 @@ namespace MovingCoop
                 bots[i] = new CourseBot(transform, RacerNames[i + 1], spawn, colors[i], speeds[i],
                     layout.BotRoute(spawn.x, .38f + i * .14f, finishLine.position.z), playerCollider, bots);
             }
+            layout.TrackBots(bots);
             UpdateResults();
             controlsText = new GUIContent(player.GetComponent<PlayerMovement>().Controls.Describe());
         }

@@ -8,11 +8,13 @@ namespace MovingCoop
         {
             public readonly Vector2 Position;
             public readonly bool Jump;
+            public readonly Transform Gate;
 
-            public Waypoint(float x, float z, bool jump = false)
+            public Waypoint(float x, float z, bool jump = false, Transform gate = null)
             {
                 Position = new Vector2(x, z);
                 Jump = jump;
+                Gate = gate;
             }
         }
 
@@ -62,6 +64,8 @@ namespace MovingCoop
 
             var position = controller.transform.position;
             var target = route[waypoint];
+            if (target.Gate != null && target.Gate.localPosition.y + target.Gate.localScale.y * .5f > .01f)
+                return;
             var offset = target.Position - new Vector2(position.x, position.z);
             if (offset.sqrMagnitude <= .04f * .04f)
             {

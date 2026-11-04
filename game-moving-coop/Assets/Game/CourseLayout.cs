@@ -10,6 +10,8 @@ namespace MovingCoop
         [SerializeField] private Transform firstWall;
         [SerializeField] private Transform secondWall;
         [SerializeField] private Transform sideHurdle;
+        [SerializeField] private Transform extraHurdle;
+        [SerializeField] private Transform extraWall;
         [SerializeField] private Transform firstPillar;
         [SerializeField] private Transform secondPillar;
         [SerializeField] private Transform player;
@@ -20,6 +22,7 @@ namespace MovingCoop
         private static bool? previousLeftWall;
         private LiftCycle firstCycle;
         private LiftCycle secondCycle;
+        private CourseBot[] bots;
 
         private void Awake()
         {
@@ -34,10 +37,14 @@ namespace MovingCoop
             PlaceWall(firstWall, Lane(-1.6f), firstWallOnLeft);
             PlaceWall(secondWall, Lane(1.6f), !firstWallOnLeft);
 
-            PlacePillar(firstPillar, firstWall);
-            PlacePillar(secondPillar, secondWall);
+            PlaceGate(firstPillar, Lane(-6.4f));
+            PlaceGate(secondPillar, Lane(6.4f));
             firstCycle = new LiftCycle(0f);
             secondCycle = new LiftCycle(Random.Range(1.2f, 2.8f));
+
+            var extraWallFirst = Random.value < .5f;
+            PlaceWall(extraWall, Lane(extraWallFirst ? -3.2f : 3.2f), !firstWallOnLeft);
+            PlaceSideHurdle(extraHurdle, Lane(extraWallFirst ? 3.2f : -3.2f));
 
             var earlySlot = jumpFirst ? -4.8f : -8f;
             var lateSlot = jumpLast ? 4.8f : 8f;
@@ -45,17 +52,28 @@ namespace MovingCoop
             Place(centerBlock, Random.Range(-2f, 2f), Lane(blockFirst ? earlySlot : lateSlot),
                 Random.Range(4f, 7f), Random.Range(1.7f, 2.15f), Random.Range(.8f, 1.2f));
 
-            var sideWidth = Random.Range(6f, 10f);
-            Place(sideHurdle, EdgeCenter(sideWidth, Random.value < .5f), Lane(blockFirst ? lateSlot : earlySlot),
-                sideWidth, Random.Range(.42f, .57f), Random.Range(.3f, .42f));
+            PlaceSideHurdle(sideHurdle, Lane(blockFirst ? lateSlot : earlySlot));
         }
 
         private static void PlaceHurdle(Transform obstacle, float z) =>
             Place(obstacle, 0f, Lane(z), HalfArenaWidth * 2f, Random.Range(.42f, .57f), Random.Range(.3f, .42f));
 
+        private static void PlaceSideHurdle(Transform obstacle, float z)
+        {
+            var width = Random.Range(6f, 10f);
+            Place(obstacle, EdgeCenter(width, Random.value < .5f), z, width,
+                Random.Range(.42f, .57f), Random.Range(.3f, .42f));
+        }
+
+        internal void TrackBots(CourseBot[] racers) => bots = racers;
+
         internal CourseBot.Waypoint[] BotRoute(float spawnX, float lane, float finishZ)
         {
-            var rows = new[] { hurdle, secondHurdle, firstWall, secondWall, sideHurdle, centerBlock };
+            var rows = new[]
+            {
+                hurdle, secondHurdle, firstWall, secondWall, sideHurdle, centerBlock,
+                firstPillar, secondPillar, extraHurdle, extraWall
+            };
             System.Array.Sort(rows, (a, b) => a.position.z.CompareTo(b.position.z));
             var route = new CourseBot.Waypoint[rows.Length * 2 + 1];
             var x = spawnX;
@@ -63,29 +81,22 @@ namespace MovingCoop
             foreach (var row in rows)
             {
                 var jump = row == hurdle || row == secondHurdle;
+                var gate = row == firstPillar || row == secondPillar;
                 if (row == centerBlock)
                 {
                     var side = lane < .55f ? -1f : 1f;
                     var edge = row.position.x + side * row.localScale.x * .5f;
                     x = Mathf.Lerp(edge, side * HalfArenaWidth, .45f);
                 }
-                else if (!jump)
+                else if (!jump && !gate)
                 {
                     var side = -Mathf.Sign(row.position.x);
-                    var gapCenter = row.localScale.x * .5f;
-                    if (row == sideHurdle)
-                        x = side * Mathf.Lerp(gapCenter, HalfArenaWidth, .5f);
-                    else
-                    {
-                        var pillar = row == firstWall ? firstPillar : secondPillar;
-                        var outerEdge = gapCenter + pillar.localScale.x * .5f;
-                        x = side * Mathf.Lerp(outerEdge, HalfArenaWidth, lane);
-                    }
+                    x = side * Mathf.Lerp(row.localScale.x * .5f, HalfArenaWidth, lane);
                 }
 
                 var z = row.position.z;
                 route[index++] = new CourseBot.Waypoint(x, z - 1.1f);
-                route[index++] = new CourseBot.Waypoint(x, z + 1.1f, jump);
+                route[index++] = new CourseBot.Waypoint(x, z + 1.1f, jump, gate ? row : null);
             }
 
             route[index] = new CourseBot.Waypoint(x, finishZ + .45f);
@@ -99,11 +110,10 @@ namespace MovingCoop
             MovePillar(secondPillar, secondCycle.HeightAt(time));
         }
 
-        private static void PlacePillar(Transform pillar, Transform wall)
+        private static void PlaceGate(Transform gate, float z)
         {
-            var gapCenter = -Mathf.Sign(wall.localPosition.x) * wall.localScale.x * .5f;
-            pillar.localScale = new Vector3(Random.Range(1.35f, 3.2f), PillarHeight, 1.2f);
-            pillar.localPosition = new Vector3(gapCenter, -PillarHeight * .5f, wall.localPosition.z);
+            gate.localScale = new Vector3(HalfArenaWidth * 2f, PillarHeight, Random.Range(.9f, 1.3f));
+            gate.localPosition = new Vector3(0f, -PillarHeight * .5f, z);
         }
 
         private void MovePillar(Transform pillar, float height)
@@ -111,15 +121,27 @@ namespace MovingCoop
             var position = pillar.localPosition;
             var targetY = height - PillarHeight * .5f;
 
-            // Hold the current height while a player is over the footprint.
-            var offset = player.position - pillar.position;
-            var size = pillar.localScale;
-            if (targetY > position.y && Mathf.Abs(offset.x) < size.x * .5f + .32f &&
-                Mathf.Abs(offset.z) < size.z * .5f + .32f)
+            // Keep the gate from rising under a racer already crossing it.
+            if (targetY > position.y && GateOccupied(pillar))
                 return;
 
             position.y = targetY;
             pillar.localPosition = position;
+        }
+
+        private bool GateOccupied(Transform gate)
+        {
+            var halfDepth = gate.localScale.z * .5f + .32f;
+            var z = gate.position.z;
+            if (Mathf.Abs(player.position.z - z) < halfDepth)
+                return true;
+
+            if (bots != null)
+                foreach (var bot in bots)
+                    if (Mathf.Abs(bot.Z - z) < halfDepth)
+                        return true;
+
+            return false;
         }
 
         private readonly struct LiftCycle
