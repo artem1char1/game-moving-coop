@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -11,11 +13,19 @@ namespace MovingCoop
         [SerializeField] private Transform finishLine;
 
         private const double Duration = 30;
-        private enum CourseState { Ready, Running, Won, TimedOut }
+        private enum CourseState { Ready, Running, Complete }
 
         private CourseState state;
         private double deadline;
-        private double finishedWith;
+        private double startedAt;
+        private double endedAt;
+        private double previousTime;
+        private readonly CourseBot[] bots = new CourseBot[3];
+        private readonly bool[] finished = new bool[4];
+        private readonly List<(int Racer, double Time)> results = new(4);
+        private readonly List<(int Racer, double Time)> crossings = new(4);
+        private readonly GUIContent resultsText = new();
+        private static readonly string[] RacerNames = { "Ты", "Бот 1", "Бот 2", "Бот 3" };
         private float previousZ;
         private GUIStyle statusStyle;
         private GUIStyle controlsTitleStyle;
@@ -27,6 +37,18 @@ namespace MovingCoop
         private void Start()
         {
             previousZ = player.position.z;
+            previousTime = Time.timeAsDouble;
+            var layout = GetComponent<CourseLayout>();
+            var playerCollider = player.GetComponent<CharacterController>();
+            var colors = new[] { new Color(.95f, .25f, .31f), new Color(.98f, .76f, .15f), new Color(.25f, .55f, 1f) };
+            var speeds = new[] { 3.35f, 3.75f, 4.1f };
+            for (var i = 0; i < bots.Length; i++)
+            {
+                var spawn = player.position + Vector3.right * ((i - 1.5f) * 1.35f);
+                bots[i] = new CourseBot(transform, RacerNames[i + 1], spawn, colors[i], speeds[i],
+                    layout.BotRoute(spawn.x, .38f + i * .14f, finishLine.position.z), playerCollider, bots);
+            }
+            UpdateResults();
             controlsText = new GUIContent(player.GetComponent<PlayerMovement>().Controls.Describe());
         }
 
@@ -43,28 +65,79 @@ namespace MovingCoop
 
         private void Advance(float z, double now)
         {
-            if (state == CourseState.Ready && Crossed(startLine.position.z, z))
+            if (state == CourseState.Ready && previousZ <= startLine.position.z && z > startLine.position.z)
             {
                 state = CourseState.Running;
+                startedAt = now;
                 deadline = now + Duration;
             }
 
             if (state == CourseState.Running)
             {
-                if (now >= deadline)
-                    state = CourseState.TimedOut;
-                else if (Crossed(finishLine.position.z, z))
+                crossings.Clear();
+                RecordCrossing(0, previousZ, z, now);
+                for (var i = 0; i < bots.Length; i++)
                 {
-                    finishedWith = deadline - now;
-                    state = CourseState.Won;
+                    if (finished[i + 1]) continue;
+                    var before = bots[i].Z;
+                    bots[i].Step((float)System.Math.Clamp(System.Math.Min(now, deadline) - System.Math.Max(previousTime, startedAt), 0d, .1d));
+                    RecordCrossing(i + 1, before, bots[i].Z, System.Math.Min(now, deadline));
                 }
+
+                crossings.Sort((a, b) =>
+                {
+                    var timeOrder = a.Time.CompareTo(b.Time);
+                    return timeOrder != 0 ? timeOrder : a.Racer.CompareTo(b.Racer);
+                });
+                foreach (var crossing in crossings)
+                {
+                    finished[crossing.Racer] = true;
+                    results.Add(crossing);
+                }
+
+                if (now >= deadline || results.Count == finished.Length)
+                {
+                    state = CourseState.Complete;
+                    endedAt = System.Math.Min(now, deadline);
+                    UpdateResults();
+                }
+                else if (crossings.Count > 0)
+                    UpdateResults();
             }
 
             previousZ = z;
+            previousTime = now;
         }
 
-        private bool Crossed(float lineZ, float z) => previousZ <= lineZ && z > lineZ;
+        private void RecordCrossing(int racer, float from, float to, double now)
+        {
+            var line = finishLine.position.z;
+            if (finished[racer] || from > line || to <= line) return;
 
+            var fraction = (line - from) / (to - from);
+            var time = System.Math.Max(startedAt, previousTime);
+            time += (now - time) * fraction;
+            if (time < deadline)
+                crossings.Add((racer, time - startedAt));
+        }
+
+        private void UpdateResults()
+        {
+            var text = new StringBuilder("Результаты");
+            for (var i = 0; i < results.Count; i++)
+            {
+                var result = results[i];
+                text.Append($"\n{i + 1}. {RacerNames[result.Racer]} — {result.Time:0.00} сек");
+            }
+
+            for (var i = 0; i < RacerNames.Length; i++)
+            {
+                if (finished[i]) continue;
+                var status = state == CourseState.Complete ? "не финишировал" : "—";
+                text.Append($"\n{RacerNames[i]}   {status}");
+            }
+            resultsText.text = text.ToString();
+        }
         private void OnGUI()
         {
             statusStyle ??= new GUIStyle(GUI.skin.label)
@@ -78,14 +151,16 @@ namespace MovingCoop
             {
                 CourseState.Ready => Duration,
                 CourseState.Running => System.Math.Max(0, deadline - Time.timeAsDouble),
-                CourseState.Won => finishedWith,
+                CourseState.Complete => System.Math.Max(0, deadline - endedAt),
                 _ => 0
             };
+            var playerPlace = results.FindIndex(result => result.Racer == 0) + 1;
             var message = state switch
             {
-                CourseState.Ready => "Пересеки синюю линию, чтобы начать",
+                CourseState.Ready => "Пересеки синюю линию, чтобы начать гонку",
+                _ when playerPlace == 1 => "Победа!  R — заново",
+                _ when playerPlace > 1 => $"Твоё место: {playerPlace} из 4.  R — заново",
                 CourseState.Running => "Доберись до зелёной линии",
-                CourseState.Won => "Победа!  R — заново",
                 _ => "Время вышло.  R — заново"
             };
             var width = Mathf.Min(410f, Screen.width - 16f);
@@ -93,6 +168,20 @@ namespace MovingCoop
             GUI.Box(box, GUIContent.none);
             GUI.Label(box, $"{seconds:00.0} сек\n{message}", statusStyle);
             DrawControls();
+            DrawResults();
+        }
+
+        private void DrawResults()
+        {
+            controlsTextStyle ??= new GUIStyle(GUI.skin.label) { fontSize = 14, wordWrap = true };
+            const float padding = 10f;
+            var width = Mathf.Min(215f, Screen.width - 24f);
+            var innerWidth = width - 2f * padding;
+            var textHeight = controlsTextStyle.CalcHeight(resultsText, innerWidth);
+            var x = Screen.width - width - 12f;
+            const float top = 88f;
+            GUI.Box(new Rect(x, top, width, textHeight + 2f * padding), GUIContent.none);
+            GUI.Label(new Rect(x + padding, top + padding, innerWidth, textHeight), resultsText, controlsTextStyle);
         }
 
         private void DrawControls()

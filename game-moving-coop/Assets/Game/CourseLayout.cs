@@ -38,6 +38,33 @@ namespace MovingCoop
                 sideWidth, Random.Range(.42f, .57f), Random.Range(.3f, .42f));
         }
 
+        internal CourseBot.Waypoint[] BotRoute(float spawnX, float lane, float finishZ)
+        {
+            var rows = new[] { hurdle, firstWall, secondWall, sideHurdle };
+            System.Array.Sort(rows, (a, b) => a.position.z.CompareTo(b.position.z));
+            var route = new CourseBot.Waypoint[rows.Length * 2 + 1];
+            var x = spawnX;
+            var index = 0;
+            foreach (var row in rows)
+            {
+                var jump = row == hurdle;
+                if (!jump)
+                {
+                    var side = -Mathf.Sign(row.position.x);
+                    var gapCenter = row.localScale.x * .5f;
+                    var offset = row == sideHurdle ? .5f : lane;
+                    x = side * Mathf.Lerp(gapCenter, HalfArenaWidth, offset);
+                }
+
+                var z = row.position.z;
+                route[index++] = new CourseBot.Waypoint(x, z - 1.1f);
+                route[index++] = new CourseBot.Waypoint(x, z + 1.1f, jump);
+            }
+
+            route[index] = new CourseBot.Waypoint(x, finishZ + .45f);
+            return route;
+        }
+
         private void Update()
         {
             var phase = Time.timeSinceLevelLoad / LiftPeriod;
