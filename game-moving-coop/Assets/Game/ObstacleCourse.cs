@@ -18,6 +18,12 @@ namespace MovingCoop
         private double finishedWith;
         private float previousZ;
         private GUIStyle statusStyle;
+        private GUIStyle controlsTitleStyle;
+        private GUIStyle controlsTextStyle;
+
+        private static readonly GUIContent ControlsTitle = new("Управление");
+        private static readonly GUIContent ControlsText = new(
+            "I — вперёд   K — назад\nJ — влево   L — вправо\nКруг курсором — прыжок\nR — начать заново");
 
         private void Start() => previousZ = player.position.z;
 
@@ -83,6 +89,36 @@ namespace MovingCoop
             var box = new Rect((Screen.width - width) / 2f, 12f, width, 68f);
             GUI.Box(box, GUIContent.none);
             GUI.Label(box, $"{seconds:00.0} сек\n{message}", statusStyle);
+            DrawControls();
+        }
+
+        private void DrawControls()
+        {
+            controlsTitleStyle ??= new GUIStyle(GUI.skin.label)
+            {
+                fontStyle = FontStyle.Bold,
+                fontSize = 16
+            };
+            controlsTextStyle ??= new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 14,
+                wordWrap = true
+            };
+
+            const float margin = 12f;
+            const float padding = 10f;
+            var width = Mathf.Min(244f, Screen.width - margin * 2f);
+            var innerWidth = width - padding * 2f;
+            var titleHeight = controlsTitleStyle.CalcHeight(ControlsTitle, innerWidth);
+            var textHeight = controlsTextStyle.CalcHeight(ControlsText, innerWidth);
+            var height = titleHeight + textHeight + padding * 2f;
+            var top = Screen.height - margin - height;
+
+            GUI.Box(new Rect(margin, top, width, height), GUIContent.none);
+            GUI.Label(new Rect(margin + padding, top + padding, innerWidth, titleHeight),
+                ControlsTitle, controlsTitleStyle);
+            GUI.Label(new Rect(margin + padding, top + padding + titleHeight, innerWidth, textHeight),
+                ControlsText, controlsTextStyle);
         }
     }
 }
