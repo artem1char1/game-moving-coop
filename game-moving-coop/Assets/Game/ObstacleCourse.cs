@@ -12,11 +12,9 @@ namespace MovingCoop
         [SerializeField] private Transform startLine;
         [SerializeField] private Transform finishLine;
 
-        private const double Duration = 30;
         private enum CourseState { Ready, Running, Complete }
 
         private CourseState state;
-        private double deadline;
         private double startedAt;
         private double endedAt;
         private double previousTime;
@@ -69,7 +67,6 @@ namespace MovingCoop
             {
                 state = CourseState.Running;
                 startedAt = now;
-                deadline = now + Duration;
             }
 
             if (state == CourseState.Running)
@@ -80,8 +77,8 @@ namespace MovingCoop
                 {
                     if (finished[i + 1]) continue;
                     var before = bots[i].Z;
-                    bots[i].Step((float)System.Math.Clamp(System.Math.Min(now, deadline) - System.Math.Max(previousTime, startedAt), 0d, .1d));
-                    RecordCrossing(i + 1, before, bots[i].Z, System.Math.Min(now, deadline));
+                    bots[i].Step((float)System.Math.Clamp(now - System.Math.Max(previousTime, startedAt), 0d, .1d));
+                    RecordCrossing(i + 1, before, bots[i].Z, now);
                 }
 
                 crossings.Sort((a, b) =>
@@ -95,10 +92,10 @@ namespace MovingCoop
                     results.Add(crossing);
                 }
 
-                if (now >= deadline || results.Count == finished.Length)
+                if (results.Count == finished.Length)
                 {
                     state = CourseState.Complete;
-                    endedAt = System.Math.Min(now, deadline);
+                    endedAt = now;
                     UpdateResults();
                 }
                 else if (crossings.Count > 0)
@@ -117,8 +114,7 @@ namespace MovingCoop
             var fraction = (line - from) / (to - from);
             var time = System.Math.Max(startedAt, previousTime);
             time += (now - time) * fraction;
-            if (time < deadline)
-                crossings.Add((racer, time - startedAt));
+            crossings.Add((racer, time - startedAt));
         }
 
         private void UpdateResults()
@@ -133,8 +129,7 @@ namespace MovingCoop
             for (var i = 0; i < RacerNames.Length; i++)
             {
                 if (finished[i]) continue;
-                var status = state == CourseState.Complete ? "не финишировал" : "—";
-                text.Append($"\n{RacerNames[i]}   {status}");
+                text.Append($"\n{RacerNames[i]} —");
             }
             resultsText.text = text.ToString();
         }
@@ -149,10 +144,9 @@ namespace MovingCoop
 
             var seconds = state switch
             {
-                CourseState.Ready => Duration,
-                CourseState.Running => System.Math.Max(0, deadline - Time.timeAsDouble),
-                CourseState.Complete => System.Math.Max(0, deadline - endedAt),
-                _ => 0
+                CourseState.Ready => 0,
+                CourseState.Running => Time.timeAsDouble - startedAt,
+                _ => endedAt - startedAt
             };
             var playerPlace = results.FindIndex(result => result.Racer == 0) + 1;
             var message = state switch
@@ -160,8 +154,7 @@ namespace MovingCoop
                 CourseState.Ready => "Пересеки синюю линию, чтобы начать гонку",
                 _ when playerPlace == 1 => "Победа!  R — заново",
                 _ when playerPlace > 1 => $"Твоё место: {playerPlace} из 4.  R — заново",
-                CourseState.Running => "Доберись до зелёной линии",
-                _ => "Время вышло.  R — заново"
+                _ => "Доберись до зелёной линии"
             };
             var width = Mathf.Min(410f, Screen.width - 16f);
             var box = new Rect((Screen.width - width) / 2f, 12f, width, 68f);

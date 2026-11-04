@@ -5,6 +5,8 @@ namespace MovingCoop
     public sealed class CourseLayout : MonoBehaviour
     {
         [SerializeField] private Transform hurdle;
+        [SerializeField] private Transform secondHurdle;
+        [SerializeField] private Transform centerBlock;
         [SerializeField] private Transform firstWall;
         [SerializeField] private Transform secondWall;
         [SerializeField] private Transform sideHurdle;
@@ -25,30 +27,46 @@ namespace MovingCoop
             previousLeftWall = firstWallOnLeft;
 
             var jumpFirst = Random.value < .5f;
-            Place(hurdle, 0f, Lane(jumpFirst ? -4.1f : 4.45f), HalfArenaWidth * 2f,
-                Random.Range(.42f, .57f), Random.Range(.3f, .42f));
-            PlaceWall(firstWall, Lane(-1.25f), firstWallOnLeft);
+            var jumpLast = Random.value < .5f;
+            PlaceHurdle(hurdle, jumpFirst ? -8f : -4.8f);
+            PlaceHurdle(secondHurdle, jumpLast ? 8f : 4.8f);
+            PlaceWall(firstWall, Lane(-1.6f), firstWallOnLeft);
             PlaceWall(secondWall, Lane(1.6f), !firstWallOnLeft);
 
             PlacePillar(firstPillar, firstWall);
             PlacePillar(secondPillar, secondWall);
 
+            var earlySlot = jumpFirst ? -4.8f : -8f;
+            var lateSlot = jumpLast ? 4.8f : 8f;
+            var blockFirst = Random.value < .5f;
+            Place(centerBlock, Random.Range(-2f, 2f), Lane(blockFirst ? earlySlot : lateSlot),
+                Random.Range(4f, 7f), Random.Range(1.7f, 2.15f), Random.Range(.8f, 1.2f));
+
             var sideWidth = Random.Range(6f, 10f);
-            Place(sideHurdle, EdgeCenter(sideWidth, Random.value < .5f), Lane(jumpFirst ? 4.45f : -4.1f),
+            Place(sideHurdle, EdgeCenter(sideWidth, Random.value < .5f), Lane(blockFirst ? lateSlot : earlySlot),
                 sideWidth, Random.Range(.42f, .57f), Random.Range(.3f, .42f));
         }
 
+        private static void PlaceHurdle(Transform obstacle, float z) =>
+            Place(obstacle, 0f, Lane(z), HalfArenaWidth * 2f, Random.Range(.42f, .57f), Random.Range(.3f, .42f));
+
         internal CourseBot.Waypoint[] BotRoute(float spawnX, float lane, float finishZ)
         {
-            var rows = new[] { hurdle, firstWall, secondWall, sideHurdle };
+            var rows = new[] { hurdle, secondHurdle, firstWall, secondWall, sideHurdle, centerBlock };
             System.Array.Sort(rows, (a, b) => a.position.z.CompareTo(b.position.z));
             var route = new CourseBot.Waypoint[rows.Length * 2 + 1];
             var x = spawnX;
             var index = 0;
             foreach (var row in rows)
             {
-                var jump = row == hurdle;
-                if (!jump)
+                var jump = row == hurdle || row == secondHurdle;
+                if (row == centerBlock)
+                {
+                    var side = lane < .55f ? -1f : 1f;
+                    var edge = row.position.x + side * row.localScale.x * .5f;
+                    x = Mathf.Lerp(edge, side * HalfArenaWidth, .45f);
+                }
+                else if (!jump)
                 {
                     var side = -Mathf.Sign(row.position.x);
                     var gapCenter = row.localScale.x * .5f;
