@@ -1,6 +1,0 @@
-{
-  "name": "MovingCoop.Application",
-  "references": [
-    "MovingCoop.Domain"
-  ]
-}

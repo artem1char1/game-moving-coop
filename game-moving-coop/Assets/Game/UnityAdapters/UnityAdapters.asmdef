@@ -1,8 +1,0 @@
-{
-  "name": "MovingCoop.UnityAdapters",
-  "references": [
-    "MovingCoop.Domain",
-    "MovingCoop.Application",
-    "Unity.InputSystem"
-  ]
-}
