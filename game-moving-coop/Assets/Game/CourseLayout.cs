@@ -8,8 +8,14 @@ namespace MovingCoop
         [SerializeField] private Transform firstWall;
         [SerializeField] private Transform secondWall;
         [SerializeField] private Transform sideHurdle;
+        [SerializeField] private Transform firstPillar;
+        [SerializeField] private Transform secondPillar;
+        [SerializeField] private Transform player;
 
         private const float HalfArenaWidth = 11f;
+        private const float PillarHeight = 1.9f;
+        private const float PillarWidth = 1.2f;
+        private const float LiftPeriod = 4f;
         private static bool? previousLeftWall;
 
         private void Awake()
@@ -24,9 +30,43 @@ namespace MovingCoop
             PlaceWall(firstWall, Lane(-1.25f), firstWallOnLeft);
             PlaceWall(secondWall, Lane(1.6f), !firstWallOnLeft);
 
+            PlacePillar(firstPillar, firstWall);
+            PlacePillar(secondPillar, secondWall);
+
             var sideWidth = Random.Range(6f, 10f);
             Place(sideHurdle, EdgeCenter(sideWidth, Random.value < .5f), Lane(jumpFirst ? 4.45f : -4.1f),
                 sideWidth, Random.Range(.42f, .57f), Random.Range(.3f, .42f));
+        }
+
+        private void Update()
+        {
+            var phase = Time.timeSinceLevelLoad / LiftPeriod;
+            MovePillar(firstPillar, phase);
+            MovePillar(secondPillar, phase + .5f);
+        }
+
+        private static void PlacePillar(Transform pillar, Transform wall)
+        {
+            var gapCenter = -Mathf.Sign(wall.localPosition.x) * wall.localScale.x * .5f;
+            pillar.localScale = new Vector3(PillarWidth, PillarHeight, PillarWidth);
+            pillar.localPosition = new Vector3(gapCenter, -PillarHeight * .5f, wall.localPosition.z);
+        }
+
+        private void MovePillar(Transform pillar, float phase)
+        {
+            var lift = .5f - .5f * Mathf.Cos(phase * 2f * Mathf.PI);
+            var height = PillarHeight * Mathf.Clamp01((lift - .15f) / .7f);
+            var position = pillar.localPosition;
+            var targetY = height - PillarHeight * .5f;
+
+            // Hold the current height while a player is over the footprint.
+            var offset = player.position - pillar.position;
+            var clearance = PillarWidth * .5f + .32f;
+            if (targetY > position.y && Mathf.Abs(offset.x) < clearance && Mathf.Abs(offset.z) < clearance)
+                return;
+
+            position.y = targetY;
+            pillar.localPosition = position;
         }
 
         private static void PlaceWall(Transform wall, float z, bool onLeft)
