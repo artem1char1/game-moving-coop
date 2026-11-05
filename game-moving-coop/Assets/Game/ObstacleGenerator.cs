@@ -79,6 +79,7 @@ namespace MovingCoop
             firstCycle = new LiftCycle(0f);
             secondCycle = new LiftCycle(Random.Range(1.2f, 2.8f));
 
+            var dividerSpecs = new Dictionary<Transform, int>();
             var detourOnLeft = Random.value < .5f;
             for (var i = 0; i < rows.Length; i++)
             {
@@ -99,9 +100,33 @@ namespace MovingCoop
                     Place(row, Random.Range(-2f, 2f), z, Random.Range(4f, 7f),
                         Random.Range(1.7f, 2.15f), Random.Range(.8f, 1.2f));
                 else if (row == firstDivider || row == secondDivider || row == thirdDivider || row == fourthDivider)
-                    PlaceDivider(row, z, Random.Range(row == firstDivider ? 1 : 0, 4));
+                {
+                    row.localPosition = new Vector3(0f, 0f, z);
+                    dividerSpecs.Add(row, Random.Range(row == firstDivider ? 1 : 0, 4));
+                }
                 else
                     combinations.Add(row, CombineWall(row, z));
+            }
+
+            // Adjacent dividers connect, and the last one reaches the next obstacle.
+            for (var i = rows.Length - 1; i >= 0; i--)
+            {
+                var row = rows[i];
+                if (!dividerSpecs.TryGetValue(row, out var mix)) continue;
+                var start = row.localPosition.z - .9f;
+                var next = i + 1 < rows.Length ? rows[i + 1] : null;
+                var end = 31.95f;
+                var x = Random.Range(-5f, 5f);
+                if (next != null)
+                {
+                    x = next.localPosition.x;
+                    end = dividerLengths.TryGetValue(next, out var nextLength)
+                        ? next.localPosition.z - nextLength * .5f
+                        : next.localPosition.z - next.localScale.z * .5f;
+                    if (next == firstPillar || next == secondPillar)
+                        x = Random.Range(1.5f, 5f) * (Random.value < .5f ? -1f : 1f);
+                }
+                PlaceDivider(row, x, start, end, mix);
             }
         }
 
@@ -129,10 +154,10 @@ namespace MovingCoop
             return divider;
         }
 
-        private void PlaceDivider(Transform divider, float z, int mix)
+        private void PlaceDivider(Transform divider, float x, float start, float end, int mix)
         {
-            var length = Random.Range(mix == 3 ? 2.15f : 1.8f, 2.2f);
-            divider.localPosition = new Vector3(Random.Range(-5f, 5f), 0f, z);
+            var length = end - start;
+            divider.localPosition = new Vector3(x, 0f, (start + end) * .5f);
             dividerLengths.Add(divider, length);
 
             var templates = new List<Transform>(3) { firstWall };
@@ -196,10 +221,11 @@ namespace MovingCoop
         public CourseBot.Waypoint[] BotRoute(float spawnX, float lane, float finishZ)
         {
             var route = new CourseBot.Waypoint[rows.Length * 2 + 1];
-            var x = spawnX;
-            var index = 0;
-            foreach (var row in rows)
+            var targetXs = new float[rows.Length];
+            for (var rowIndex = rows.Length - 1; rowIndex >= 0; rowIndex--)
             {
+                var row = rows[rowIndex];
+                var x = 0f;
                 var jump = false;
                 var approach = 1.1f;
                 Transform gate = row == firstPillar || row == secondPillar ? row : null;
@@ -219,6 +245,7 @@ namespace MovingCoop
                 else if (dividerLengths.TryGetValue(row, out var length))
                 {
                     approach = length * .5f + .3f;
+                    x = rowIndex + 1 < rows.Length ? targetXs[rowIndex + 1] : 0f;
                     const float clearance = DividerThickness * .5f + .6f;
                     if (Mathf.Abs(x - row.position.x) < clearance)
                         x = row.position.x + (x < row.position.x ? -clearance : clearance);
@@ -229,12 +256,20 @@ namespace MovingCoop
                     x = side * Mathf.Lerp(row.localScale.x * .5f, HalfArenaWidth, lane);
                 }
 
+                targetXs[rowIndex] = x;
                 var z = row.position.z;
-                route[index++] = new CourseBot.Waypoint(x, z - approach);
-                route[index++] = new CourseBot.Waypoint(x, z + approach, jump, gate);
+                var exitZ = z + approach;
+                if (dividerLengths.ContainsKey(row) && rowIndex + 1 < rows.Length)
+                {
+                    var next = rows[rowIndex + 1];
+                    var nextApproach = dividerLengths.TryGetValue(next, out var nextLength) ? nextLength * .5f + .3f : 1.1f;
+                    exitZ = Mathf.Min(exitZ, next.position.z - nextApproach);
+                }
+                route[rowIndex * 2] = new CourseBot.Waypoint(x, z - approach);
+                route[rowIndex * 2 + 1] = new CourseBot.Waypoint(x, exitZ, jump, gate);
             }
 
-            route[index] = new CourseBot.Waypoint(x, finishZ + .45f);
+            route[rows.Length * 2] = new CourseBot.Waypoint(targetXs[rows.Length - 1], finishZ + .45f);
             return route;
         }
 
