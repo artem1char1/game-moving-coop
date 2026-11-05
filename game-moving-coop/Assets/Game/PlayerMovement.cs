@@ -65,6 +65,16 @@ namespace MovingCoop
             Move(input, jump, Time.deltaTime);
         }
 
+        internal void Respawn(Vector3 position)
+        {
+            controller.enabled = false;
+            transform.position = position;
+            controller.enabled = true;
+            verticalSpeed = 0f;
+            scrollUntil = float.NegativeInfinity;
+            jumpGesture.Reset();
+        }
+
         private Vector2 FilterMovement(Vector2 input, float scroll, float now)
         {
             if (scroll != 0f)

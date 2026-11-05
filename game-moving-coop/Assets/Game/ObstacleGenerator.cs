@@ -216,6 +216,47 @@ namespace MovingCoop
             Place(obstacle, EdgeCenter(width, Random.value < .5f), z, width,
                 Random.Range(.42f, .57f), Random.Range(.3f, .42f));
 
+        public void AddFeatures(CourseFeatures features)
+        {
+            var route = BotRoute(0f, .38f, 31.95f);
+            for (var i = 0; i < rows.Length; i++)
+            {
+                if (!detours.Contains(rows[i])) continue;
+                var point = route[i * 2 + 1].Position;
+                features.AddCheckpoint(new Vector3(point.x, .08f, point.y));
+            }
+
+            // Replace the middle mandatory wall with two solid flanks and a risky gap.
+            var wall = rows[0];
+            var detourIndex = 0;
+            foreach (var row in rows)
+                if (detours.Contains(row) && ++detourIndex == 2) { wall = row; break; }
+            const float opening = 2.6f;
+            var originalWidth = wall.localScale.x;
+
+            var center = wall.position;
+            var openingX = center.x + (Random.value < .5f ? -4f : 4f);
+            foreach (var side in new[] { -1f, 1f })
+            {
+                var edge = center.x + side * originalWidth * .5f;
+                var gapEdge = openingX + side * opening * .5f;
+                var flank = Instantiate(wall, transform);
+                flank.name = "Shortcut wall flank";
+                Place(flank, (edge + gapEdge) * .5f, center.z,
+                    Mathf.Abs(edge - gapEdge), wall.localScale.y, wall.localScale.z);
+            }
+            wall.GetComponent<Renderer>().enabled = false;
+            wall.GetComponent<Collider>().enabled = false;
+            var barrier = Instantiate(hurdle, transform);
+            barrier.name = "Risky shortcut jump";
+            Place(barrier, openingX, center.z, opening, .48f, .3f);
+            features.AddRiskyPassage(new Rect(openingX - opening * .5f, center.z - 1.45f, opening, 1.3f), .65f);
+
+            // Save progress before approaching either the shortcut or its long side detour.
+            var before = route[System.Array.IndexOf(rows, wall) * 2].Position;
+            features.AddCheckpoint(new Vector3(before.x, .08f, before.y));
+        }
+
         public void TrackBots(CourseBot[] racers) => bots = racers;
 
         public CourseBot.Waypoint[] BotRoute(float spawnX, float lane, float finishZ)

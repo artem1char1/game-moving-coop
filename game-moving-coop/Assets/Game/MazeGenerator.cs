@@ -32,6 +32,7 @@ namespace MovingCoop
         private Transform generated;
         private int protectedDeadEnd;
         private int firstCrossing;
+        private readonly List<(int A, int B)> shortcuts = new();
 
         internal void Initialize(Transform wallTemplate, Transform jumpTemplate, Transform gateTemplate, Transform racer)
         {
@@ -49,6 +50,15 @@ namespace MovingCoop
             var corners = new[] { 0, Columns - 1, CellCount - Columns, CellCount - 1 };
             protectedDeadEnd = corners[Random.Range(0, corners.Length)];
             CarveMap();
+            for (var row = 3; row <= 11; row += 4)
+            {
+                var normalColumn = row == 7 ? Columns - 1 - firstCrossing : firstCrossing;
+                var column = Columns - 1 - normalColumn;
+                var a = row * Columns + column;
+                var b = a + Columns;
+                passages[a, b] = passages[b, a] = true;
+                shortcuts.Add((a, b));
+            }
             BuildWalls();
             PopulatePassages();
         }
@@ -227,6 +237,35 @@ namespace MovingCoop
                 }
                 else jumps.Add(key, obstacle);
             }
+        }
+
+        internal bool IsPassage(int a, int b) => passages[a, b];
+
+        internal bool IsDeadEnd(int cell)
+        {
+            var degree = 0;
+            for (var next = 0; next < CellCount; next++)
+                if (passages[cell, next]) degree++;
+            return degree == 1 && cell != Entrance && cell != Exit;
+        }
+
+        public void AddFeatures(CourseFeatures features)
+        {
+            foreach (var edge in shortcuts)
+            {
+                var middle = (Center(edge.A) + Center(edge.B)) * .5f;
+                features.AddRiskyPassage(new Rect(middle.x - 1.82f, middle.y - .9f, 3.64f, 1.8f), .65f);
+                var exit = Center(edge.B);
+                features.AddCheckpoint(new Vector3(exit.x, .08f, exit.y));
+            }
+            for (var row = 3; row <= 11; row += 4)
+            {
+                var column = row == 7 ? Columns - 1 - firstCrossing : firstCrossing;
+                var center = Center((row + 1) * Columns + column);
+                features.AddCheckpoint(new Vector3(center.x, .08f, center.y));
+            }
+            var minimap = gameObject.AddComponent<MazeMinimap>();
+            minimap.Initialize(this, player);
         }
 
         public void TrackBots(CourseBot[] racers) => bots = racers;

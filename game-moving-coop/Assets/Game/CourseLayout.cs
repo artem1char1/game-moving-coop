@@ -6,6 +6,7 @@ namespace MovingCoop
     {
         CourseBot.Waypoint[] BotRoute(float spawnX, float lane, float finishZ);
         void TrackBots(CourseBot[] racers);
+        void AddFeatures(CourseFeatures features);
     }
 
     public enum MapChoice { Labyrinth, Obstacles, Random }
@@ -47,6 +48,10 @@ namespace MovingCoop
                 generator.Initialize(firstWall, hurdle, firstPillar, player);
                 map = generator;
             }
+            var features = gameObject.AddComponent<CourseFeatures>();
+            features.Initialize(player.GetComponent<PlayerMovement>(), firstPillar.GetComponent<Renderer>().sharedMaterial);
+            map.AddFeatures(features);
+            features.BuildTerrain();
             SetPlayerActive(true);
         }
 
