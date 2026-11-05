@@ -3,293 +3,313 @@ using UnityEngine;
 
 namespace MovingCoop
 {
+    // Every passage in the navigation graph is also an opening in the physical map.
     public sealed class CourseLayout : MonoBehaviour
     {
-        [SerializeField] private Transform hurdle;
-        [SerializeField] private Transform secondHurdle;
-        [SerializeField] private Transform centerBlock;
         [SerializeField] private Transform firstWall;
-        [SerializeField] private Transform secondWall;
-        [SerializeField] private Transform sideHurdle;
-        [SerializeField] private Transform extraHurdle;
-        [SerializeField] private Transform extraWall;
+        [SerializeField] private Transform hurdle;
         [SerializeField] private Transform firstPillar;
-        [SerializeField] private Transform secondPillar;
         [SerializeField] private Transform player;
 
-        private const float HalfArenaWidth = 11f;
-        private const float PillarHeight = 1.9f;
-        private const float DividerThickness = .7f;
-        private LiftCycle firstCycle;
-        private LiftCycle secondCycle;
+        private const int Columns = 5;
+        private const int Rows = 16;
+        private const int CellCount = Columns * Rows;
+        private const int Entrance = 2;
+        private const int Exit = CellCount - 3;
+        private const float CellSize = 4f;
+        private const float WallThickness = .35f;
+        private const float WallHeight = 2.4f;
+        private const float GateHeight = 1.9f;
+
+        private readonly bool[,] passages = new bool[CellCount, CellCount];
+        private readonly Dictionary<int, Transform> jumps = new();
+        private readonly Dictionary<int, Transform> gatesByEdge = new();
+        private readonly List<(Transform Gate, float Down, float Up, float Travel, float Offset)> gates = new();
         private CourseBot[] bots;
-        private Transform[] rows;
-        private readonly Dictionary<Transform, WallCombination> combinations = new(4);
-        private readonly Dictionary<Transform, float> dividerLengths = new(2);
-        private readonly List<(Transform Gate, LiftCycle Cycle)> dividerGates = new(2);
-
-        private readonly struct WallCombination
-        {
-            public readonly Transform Hurdle;
-            public readonly Transform Gate;
-            public readonly LiftCycle Cycle;
-            public readonly float BypassX;
-
-            public WallCombination(Transform hurdle, Transform gate, float bypassX)
-            {
-                Hurdle = hurdle;
-                Gate = gate;
-                BypassX = bypassX;
-                Cycle = new LiftCycle(Random.Range(0f, 2.8f));
-            }
-        }
+        private Material wallMaterial;
+        private Material jumpMaterial;
+        private Material gateMaterial;
+        private Transform generated;
+        private int protectedDeadEnd;
+        private int firstCrossing;
 
         private void Awake()
         {
-            var fourthWall = Instantiate(extraWall, transform);
-            fourthWall.name = "Fourth Combined Wall";
-            var firstDivider = NewDivider("Longitudinal Wall A");
-            var secondDivider = NewDivider("Longitudinal Wall B");
-            rows = new[]
-            {
-                hurdle, secondHurdle, firstWall, secondWall, sideHurdle, centerBlock,
-                firstPillar, secondPillar, extraHurdle, extraWall, fourthWall, firstDivider, secondDivider
-            };
-            Shuffle(rows);
+            wallMaterial = firstWall.GetComponent<Renderer>().sharedMaterial;
+            jumpMaterial = hurdle.GetComponent<Renderer>().sharedMaterial;
+            gateMaterial = firstPillar.GetComponent<Renderer>().sharedMaterial;
 
-            firstCycle = new LiftCycle(0f);
-            secondCycle = new LiftCycle(Random.Range(1.2f, 2.8f));
+            // Scene objects remain templates. Only the start and finish belong to the new map.
+            foreach (Transform child in transform)
+                if (child.name != "START" && child.name != "FINISH")
+                    child.gameObject.SetActive(false);
 
-            for (var i = 0; i < rows.Length; i++)
+            generated = new GameObject("Generated Labyrinth").transform;
+            generated.SetParent(transform, false);
+            firstCrossing = Random.value < .5f ? 0 : Columns - 1;
+            var corners = new[] { 0, Columns - 1, CellCount - Columns, CellCount - 1 };
+            protectedDeadEnd = corners[Random.Range(0, corners.Length)];
+            CarveMap();
+            BuildWalls();
+            PopulatePassages();
+        }
+
+        private static Vector2 Center(int cell) =>
+            new((cell % Columns - 2) * CellSize, (cell / Columns - 7.5f) * CellSize);
+
+        private static int Edge(int a, int b) => Mathf.Min(a, b) * CellCount + Mathf.Max(a, b);
+
+        private IEnumerable<int> Neighbors(int cell)
+        {
+            var x = cell % Columns;
+            var z = cell / Columns;
+            if (x > 0 && CanLink(cell, cell - 1)) yield return cell - 1;
+            if (x < Columns - 1 && CanLink(cell, cell + 1)) yield return cell + 1;
+            if (z > 0 && CanCross(x, z - 1) && CanLink(cell, cell - Columns)) yield return cell - Columns;
+            if (z < Rows - 1 && CanCross(x, z) && CanLink(cell, cell + Columns)) yield return cell + Columns;
+        }
+
+        private bool CanLink(int a, int b)
+        {
+            if (a != protectedDeadEnd && b != protectedDeadEnd) return true;
+            var entrance = protectedDeadEnd % Columns == 0 ? protectedDeadEnd + 1 : protectedDeadEnd - 1;
+            return a == entrance || b == entrance;
+        }
+
+        private bool CanCross(int x, int lowerRow)
+        {
+            if (lowerRow != 3 && lowerRow != 7 && lowerRow != 11) return true;
+            var opening = lowerRow == 7 ? Columns - 1 - firstCrossing : firstCrossing;
+            return x == opening;
+        }
+
+        private void CarveMap()
+        {
+            var visited = new bool[CellCount];
+            var stack = new Stack<int>();
+            stack.Push(Entrance);
+            visited[Entrance] = true;
+            while (stack.Count > 0)
             {
-                var row = rows[i];
-                var z = -26.7f + i * 4.45f + Random.Range(-.14f, .14f);
-                if (row == hurdle || row == secondHurdle)
-                    PlaceSideHurdle(row, z, Random.Range(13f, 16f));
-                else if (row == firstPillar || row == secondPillar)
-                    PlaceGate(row, z);
-                else if (row == sideHurdle || row == extraHurdle)
-                    PlaceSideHurdle(row, z, Random.Range(6f, 10f));
-                else if (row == centerBlock)
-                    Place(row, Random.Range(-2f, 2f), z, Random.Range(4f, 7f),
-                        Random.Range(1.7f, 2.15f), Random.Range(.8f, 1.2f));
-                else if (row == firstDivider || row == secondDivider)
-                    PlaceDivider(row, z, Random.Range(row == firstDivider ? 1 : 0, 4));
-                else
-                    combinations.Add(row, CombineWall(row, z));
+                var cell = stack.Peek();
+                var choices = new List<int>();
+                foreach (var next in Neighbors(cell))
+                    if (!visited[next]) choices.Add(next);
+                if (choices.Count == 0) { stack.Pop(); continue; }
+                var chosen = choices[Random.Range(0, choices.Count)];
+                passages[cell, chosen] = passages[chosen, cell] = true;
+                visited[chosen] = true;
+                stack.Push(chosen);
+            }
+
+            var extras = new List<(int A, int B)>();
+            for (var cell = 0; cell < CellCount; cell++)
+                foreach (var next in Neighbors(cell))
+                    if (next > cell && !passages[cell, next] &&
+                        cell != protectedDeadEnd && next != protectedDeadEnd)
+                        extras.Add((cell, next));
+            Shuffle(extras);
+            var opened = 0;
+            foreach (var edge in extras)
+            {
+                passages[edge.A, edge.B] = passages[edge.B, edge.A] = true;
+                opened++;
+                if (opened >= 9 && CountPaths(Entrance, new bool[CellCount], 3) >= 3) break;
             }
         }
 
-        private static void Shuffle<T>(T[] items)
+        private int CountPaths(int cell, bool[] visited, int limit)
         {
-            for (var i = items.Length - 1; i > 0; i--)
+            if (cell == Exit) return 1;
+            visited[cell] = true;
+            var count = 0;
+            foreach (var next in Neighbors(cell))
+                if (passages[cell, next] && !visited[next])
+                {
+                    count += CountPaths(next, visited, limit - count);
+                    if (count >= limit) break;
+                }
+            visited[cell] = false;
+            return count;
+        }
+
+        private static void Shuffle<T>(List<T> items)
+        {
+            for (var i = items.Count - 1; i > 0; i--)
             {
                 var pick = Random.Range(0, i + 1);
                 (items[i], items[pick]) = (items[pick], items[i]);
             }
         }
 
-        private Transform NewDivider(string name)
+        private Transform Block(string name, Vector2 position, float width, float height, float depth, Material material)
         {
-            var divider = new GameObject(name).transform;
-            divider.SetParent(transform, false);
-            return divider;
+            var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            block.name = name;
+            block.transform.SetParent(generated, false);
+            block.transform.localPosition = new Vector3(position.x, height * .5f, position.y);
+            block.transform.localScale = new Vector3(width, height, depth);
+            block.GetComponent<Renderer>().sharedMaterial = material;
+            return block.transform;
         }
 
-        private void PlaceDivider(Transform divider, float z, int mix)
+        private void BuildWalls()
         {
-            var length = Random.Range(mix == 3 ? 3.3f : 2.4f, 3.5f);
-            divider.localPosition = new Vector3(Random.Range(-5f, 5f), 0f, z);
-            dividerLengths.Add(divider, length);
-
-            var templates = new List<Transform>(3) { firstWall };
-            if ((mix & 1) != 0) templates.Add(hurdle);
-            if ((mix & 2) != 0) templates.Add(firstPillar);
-            var pieces = templates.ToArray();
-            Shuffle(pieces);
-
-            var segmentLength = length / pieces.Length;
-            for (var i = 0; i < pieces.Length; i++)
+            // Seal the strip between the maze and the arena boundary.
+            Block("Outer boundary", new Vector2(-10.6f, 0f), 1.2f, WallHeight, 72.4f, wallMaterial);
+            Block("Outer boundary", new Vector2(10.6f, 0f), 1.2f, WallHeight, 72.4f, wallMaterial);
+            // Merge neighboring wall edges into continuous longitudinal runs.
+            for (var boundary = 0; boundary <= Columns; boundary++)
             {
-                var template = pieces[i];
-                var segment = Instantiate(template, divider);
-                var segmentZ = -length * .5f + segmentLength * (i + .5f);
-                if (template == firstPillar)
+                var runStart = -1;
+                for (var z = 0; z <= Rows; z++)
                 {
-                    segment.name = "Longitudinal Lift Gate";
-                    segment.localScale = new Vector3(DividerThickness, PillarHeight, segmentLength);
-                    segment.localPosition = new Vector3(0f, -PillarHeight * .5f, segmentZ);
-                    dividerGates.Add((segment, new LiftCycle(Random.Range(0f, 2.8f))));
+                    var solid = z < Rows && (boundary == 0 || boundary == Columns ||
+                        !passages[z * Columns + boundary - 1, z * Columns + boundary]);
+                    if (solid && runStart < 0) runStart = z;
+                    if (!solid && runStart >= 0)
+                    {
+                        Block("Longitudinal Wall", new Vector2(-10f + boundary * CellSize,
+                            -32f + (runStart + z) * CellSize * .5f),
+                            WallThickness, WallHeight, (z - runStart) * CellSize + WallThickness, wallMaterial);
+                        runStart = -1;
+                    }
                 }
-                else
+            }
+
+            for (var boundary = 0; boundary <= Rows; boundary++)
+            {
+                var runStart = -1;
+                for (var x = 0; x <= Columns; x++)
                 {
-                    var low = template == hurdle;
-                    segment.name = low ? "Longitudinal Jump Barrier" : "Longitudinal Solid Wall";
-                    Place(segment, 0f, segmentZ, DividerThickness,
-                        low ? Random.Range(.42f, .57f) : Random.Range(1.8f, 2.2f), segmentLength);
+                    var solid = x < Columns && (boundary == 0 || boundary == Rows
+                        ? x != 2
+                        : !passages[(boundary - 1) * Columns + x, boundary * Columns + x]);
+                    if (solid && runStart < 0) runStart = x;
+                    if (!solid && runStart >= 0)
+                    {
+                        Block("Cross Wall", new Vector2(-10f + (runStart + x) * CellSize * .5f,
+                            -32f + boundary * CellSize),
+                            (x - runStart) * CellSize + WallThickness, WallHeight, WallThickness, wallMaterial);
+                        runStart = -1;
+                    }
                 }
             }
         }
 
-        private WallCombination CombineWall(Transform wall, float z)
+        private void PopulatePassages()
         {
-            const float laneWidth = HalfArenaWidth * 2f / 3f;
-            var lanes = new[] { -laneWidth, 0f, laneWidth };
-            Shuffle(lanes);
-
-            var wallWidth = Random.Range(4f, 4.6f);
-            var bypassSide = Random.value < .5f ? -1f : 1f;
-            var wallX = lanes[0] - bypassSide * (laneWidth - wallWidth) * .5f;
-            var bypassX = lanes[0] + bypassSide * wallWidth * .5f;
-            Place(wall, wallX, z, wallWidth, Random.Range(1.8f, 2.2f), .75f);
-
-            var low = Instantiate(hurdle, transform);
-            low.name = "Wall Jump Barrier";
-            Place(low, lanes[1], z, laneWidth, Random.Range(.42f, .57f), .35f);
-
-            var gate = Instantiate(firstPillar, transform);
-            gate.name = "Wall Lift Gate";
-            gate.localScale = new Vector3(laneWidth, PillarHeight, .9f);
-            gate.localPosition = new Vector3(lanes[2], -PillarHeight * .5f, z);
-            return new WallCombination(low, gate, bypassX);
+            var edges = new List<(int A, int B)>();
+            for (var cell = 0; cell < CellCount; cell++)
+                foreach (var next in Neighbors(cell))
+                    if (next > cell && passages[cell, next] &&
+                        cell != protectedDeadEnd && next != protectedDeadEnd)
+                        edges.Add((cell, next));
+            Shuffle(edges);
+            for (var i = 0; i < Mathf.Min(21, edges.Count); i++)
+            {
+                var edge = edges[i];
+                var horizontalTravel = edge.B - edge.A == 1;
+                var center = (Center(edge.A) + Center(edge.B)) * .5f;
+                var lift = i < 3;
+                var thickness = lift ? .65f : .3f;
+                var obstacle = Block(lift ? "Corridor Lift Gate" : "Corridor Jump Barrier", center,
+                    horizontalTravel ? thickness : CellSize, lift ? GateHeight : Random.Range(.42f, .55f),
+                    horizontalTravel ? CellSize : thickness, lift ? gateMaterial : jumpMaterial);
+                var key = Edge(edge.A, edge.B);
+                if (lift)
+                {
+                    gatesByEdge.Add(key, obstacle);
+                    gates.Add((obstacle, Random.Range(2f, 2.8f), Random.Range(1f, 2f),
+                        Random.Range(.5f, .8f), Random.Range(0f, 3f)));
+                    var position = obstacle.localPosition;
+                    position.y = -GateHeight * .5f;
+                    obstacle.localPosition = position;
+                }
+                else jumps.Add(key, obstacle);
+            }
         }
-
-        private static void PlaceSideHurdle(Transform obstacle, float z, float width) =>
-            Place(obstacle, EdgeCenter(width, Random.value < .5f), z, width,
-                Random.Range(.42f, .57f), Random.Range(.3f, .42f));
 
         internal void TrackBots(CourseBot[] racers) => bots = racers;
 
         internal CourseBot.Waypoint[] BotRoute(float spawnX, float lane, float finishZ)
         {
-            var route = new CourseBot.Waypoint[rows.Length * 2 + 1];
-            var x = spawnX;
-            var index = 0;
-            foreach (var row in rows)
+            var parent = new int[CellCount];
+            System.Array.Fill(parent, -1);
+            var queue = new Queue<int>();
+            queue.Enqueue(Entrance);
+            parent[Entrance] = Entrance;
+            while (queue.Count > 0 && parent[Exit] < 0)
             {
-                var jump = false;
-                var approach = 1.1f;
-                Transform gate = row == firstPillar || row == secondPillar ? row : null;
-                if (combinations.TryGetValue(row, out var combination))
-                {
-                    jump = lane >= .45f && lane < .59f;
-                    gate = lane >= .59f ? combination.Gate : null;
-                    x = jump ? combination.Hurdle.position.x :
-                        gate != null ? gate.position.x : combination.BypassX;
-                }
-                else if (row == centerBlock)
-                {
-                    var side = lane < .55f ? -1f : 1f;
-                    var edge = row.position.x + side * row.localScale.x * .5f;
-                    x = Mathf.Lerp(edge, side * HalfArenaWidth, .45f);
-                }
-                else if (dividerLengths.TryGetValue(row, out var length))
-                {
-                    approach = length * .5f + .3f;
-                    const float clearance = DividerThickness * .5f + .6f;
-                    if (Mathf.Abs(x - row.position.x) < clearance)
-                        x = row.position.x + (x < row.position.x ? -clearance : clearance);
-                }
-                else if (gate == null)
-                {
-                    var side = -Mathf.Sign(row.position.x);
-                    x = side * Mathf.Lerp(row.localScale.x * .5f, HalfArenaWidth, lane);
-                }
-
-                var z = row.position.z;
-                route[index++] = new CourseBot.Waypoint(x, z - approach);
-                route[index++] = new CourseBot.Waypoint(x, z + approach, jump, gate);
+                var cell = queue.Dequeue();
+                var choices = new List<int>(Neighbors(cell));
+                if (lane > .5f) choices.Reverse();
+                foreach (var next in choices)
+                    if (passages[cell, next] && parent[next] < 0)
+                    {
+                        parent[next] = cell;
+                        queue.Enqueue(next);
+                    }
             }
+            var path = new List<int>();
+            for (var cell = Exit; cell != Entrance; cell = parent[cell]) path.Add(cell);
+            path.Add(Entrance);
+            path.Reverse();
 
-            route[index] = new CourseBot.Waypoint(x, finishZ + .45f);
-            return route;
+            var route = new List<CourseBot.Waypoint>();
+            var entry = Center(Entrance);
+            route.Add(new CourseBot.Waypoint(entry.x, -33f));
+            route.Add(new CourseBot.Waypoint(entry.x, entry.y));
+            for (var i = 1; i < path.Count; i++)
+            {
+                var from = Center(path[i - 1]);
+                var to = Center(path[i]);
+                var key = Edge(path[i - 1], path[i]);
+                var middle = (from + to) * .5f;
+                var direction = (to - from).normalized;
+                if (jumps.ContainsKey(key) || gatesByEdge.ContainsKey(key))
+                {
+                    var before = middle - direction * 1.05f;
+                    var after = middle + direction * 1.05f;
+                    gatesByEdge.TryGetValue(key, out var gate);
+                    route.Add(new CourseBot.Waypoint(before.x, before.y));
+                    route.Add(new CourseBot.Waypoint(after.x, after.y, jumps.ContainsKey(key), gate));
+                }
+                route.Add(new CourseBot.Waypoint(to.x, to.y));
+            }
+            route.Add(new CourseBot.Waypoint(0f, finishZ + .7f));
+            return route.ToArray();
         }
 
-        private void Update()
+        private void Update() => UpdateGates(Time.timeSinceLevelLoad);
+
+        private void UpdateGates(float time)
         {
-            var time = Time.timeSinceLevelLoad;
-            MovePillar(firstPillar, firstCycle.HeightAt(time));
-            MovePillar(secondPillar, secondCycle.HeightAt(time));
-            foreach (var combination in combinations.Values)
-                if (combination.Gate != null)
-                    MovePillar(combination.Gate, combination.Cycle.HeightAt(time));
-            foreach (var dividerGate in dividerGates)
-                MovePillar(dividerGate.Gate, dividerGate.Cycle.HeightAt(time));
+            foreach (var gate in gates)
+            {
+                var phase = Mathf.Repeat(time + gate.Offset, gate.Down + gate.Up + gate.Travel * 2f);
+                var height = phase < gate.Down ? 0f :
+                    phase < gate.Down + gate.Travel ? Mathf.SmoothStep(0f, GateHeight, (phase - gate.Down) / gate.Travel) :
+                    phase < gate.Down + gate.Travel + gate.Up ? GateHeight :
+                    Mathf.SmoothStep(GateHeight, 0f, (phase - gate.Down - gate.Travel - gate.Up) / gate.Travel);
+                var position = gate.Gate.localPosition;
+                var y = height - GateHeight * .5f;
+                if (y > position.y && Occupied(gate.Gate)) continue;
+                position.y = y;
+                gate.Gate.localPosition = position;
+            }
         }
 
-        private static void PlaceGate(Transform gate, float z)
+        private bool Occupied(Transform gate)
         {
-            gate.localScale = new Vector3(HalfArenaWidth * 2f, PillarHeight, Random.Range(.9f, 1.3f));
-            gate.localPosition = new Vector3(0f, -PillarHeight * .5f, z);
-        }
-
-        private void MovePillar(Transform pillar, float height)
-        {
-            var position = pillar.localPosition;
-            var targetY = height - PillarHeight * .5f;
-
-            // Keep the gate from rising under a racer already crossing it.
-            if (targetY > position.y && GateOccupied(pillar))
-                return;
-
-            position.y = targetY;
-            pillar.localPosition = position;
-        }
-
-        private bool GateOccupied(Transform gate)
-        {
-            var center = gate.position;
-            var halfWidth = gate.localScale.x * .5f + .32f;
-            var halfDepth = gate.localScale.z * .5f + .32f;
-            bool Contains(Vector3 position) =>
-                Mathf.Abs(position.x - center.x) < halfWidth && Mathf.Abs(position.z - center.z) < halfDepth;
-
+            var halfSize = gate.localScale * .5f + new Vector3(.32f, 0f, .32f);
+            bool Contains(Vector3 position) => Mathf.Abs(position.x - gate.position.x) < halfSize.x &&
+                Mathf.Abs(position.z - gate.position.z) < halfSize.z;
             if (Contains(player.position)) return true;
-
             if (bots != null)
                 foreach (var bot in bots)
                     if (Contains(bot.Position)) return true;
             return false;
-        }
-
-        private readonly struct LiftCycle
-        {
-            private readonly float lowered;
-            private readonly float raised;
-            private readonly float transition;
-            private readonly float offset;
-
-            public LiftCycle(float offset)
-            {
-                lowered = Random.Range(1.8f, 2.5f);
-                raised = Random.Range(.85f, 2.1f);
-                transition = Random.Range(.45f, .8f);
-                this.offset = offset;
-            }
-
-            public float HeightAt(float time)
-            {
-                var phase = Mathf.Repeat(time + offset, lowered + raised + 2f * transition);
-                if (phase < lowered) return 0f;
-
-                phase -= lowered;
-                if (phase < transition)
-                    return Mathf.SmoothStep(0f, PillarHeight, phase / transition);
-
-                phase -= transition;
-                if (phase < raised) return PillarHeight;
-
-                return Mathf.SmoothStep(PillarHeight, 0f, (phase - raised) / transition);
-            }
-        }
-
-        private static float EdgeCenter(float width, bool onLeft) =>
-            (HalfArenaWidth - width * .5f) * (onLeft ? -1f : 1f);
-
-        private static void Place(Transform obstacle, float x, float z, float width, float height, float depth)
-        {
-            obstacle.localScale = new Vector3(width, height, depth);
-            obstacle.localPosition = new Vector3(x, height * .5f, z);
         }
     }
 }
