@@ -31,12 +31,20 @@ namespace MovingCoop
 
         private static readonly GUIContent ControlsTitle = new("Управление");
         private GUIContent controlsText;
+        private CourseLayout layout;
 
         private void Start()
         {
+            layout = GetComponent<CourseLayout>();
+            controlsText = new GUIContent(player.GetComponent<PlayerMovement>().Controls.Describe());
+        }
+
+        private void BeginGame()
+        {
+            layout.Begin();
             previousZ = player.position.z;
             previousTime = Time.timeAsDouble;
-            var layout = GetComponent<CourseLayout>();
+
             var playerCollider = player.GetComponent<CharacterController>();
             var colors = new[] { new Color(.95f, .25f, .31f), new Color(.98f, .76f, .15f), new Color(.25f, .55f, 1f) };
             var speeds = new[] { 3.35f, 3.75f, 4.1f };
@@ -59,7 +67,8 @@ namespace MovingCoop
                 return;
             }
 
-            Advance(player.position.z, Time.timeAsDouble);
+            if (layout.Ready)
+                Advance(player.position.z, Time.timeAsDouble);
         }
 
         private void Advance(float z, double now)
@@ -136,6 +145,11 @@ namespace MovingCoop
         }
         private void OnGUI()
         {
+            if (!layout.Ready)
+            {
+                DrawMapSelection();
+                return;
+            }
             statusStyle ??= new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
@@ -160,9 +174,30 @@ namespace MovingCoop
             var width = Mathf.Min(410f, Screen.width - 16f);
             var box = new Rect((Screen.width - width) / 2f, 12f, width, 68f);
             GUI.Box(box, GUIContent.none);
-            GUI.Label(box, $"{seconds:00.0} сек\n{message}", statusStyle);
+            var mode = layout.ActualMode == MapChoice.Labyrinth ? "Лабиринт" : "Полоса препятствий";
+            GUI.Label(box, $"{mode} · {seconds:00.0} сек\n{message}", statusStyle);
             DrawControls();
             DrawResults();
+        }
+
+        private void DrawMapSelection()
+        {
+            var width = Mathf.Min(460f, Screen.width - 24f);
+            var height = 260f;
+            var rect = new Rect((Screen.width - width) * .5f, (Screen.height - height) * .5f, width, height);
+            GUILayout.BeginArea(rect, GUI.skin.box);
+            GUILayout.Space(16);
+            GUILayout.Label("Выбери карту", new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter, fontSize = 24
+            });
+            GUILayout.Space(16);
+            var names = new[] { "Лабиринт", "Полоса препятствий", "Случайно" };
+            CourseLayout.Selection = (MapChoice)GUILayout.SelectionGrid((int)CourseLayout.Selection, names, 1,
+                GUILayout.Height(105));
+            GUILayout.Space(16);
+            if (GUILayout.Button("Начать", GUILayout.Height(38))) BeginGame();
+            GUILayout.EndArea();
         }
 
         private void DrawResults()
